@@ -4,6 +4,9 @@ import { BrowserRouter, NavLink, Route, Routes } from 'react-router';
 import Catalog from './catalog/Catalog.jsx';
 import MyQuizzes from './maker/MyQuizzes.jsx';
 import QuizEditor from './maker/QuizEditor.jsx';
+import AttemptResult from './player/AttemptResult.jsx';
+import MyHistory from './player/MyHistory.jsx';
+import PlayQuiz from './player/PlayQuiz.jsx';
 import './styles.css';
 
 function CatalogPage() {
@@ -26,6 +29,7 @@ createRoot(document.getElementById('root')).render(
       <nav aria-label="Main">
         <NavLink to="/" end>Catalog</NavLink>
         <NavLink to="/my/quizzes">My quizzes</NavLink>
+        <NavLink to="/me/attempts">My history</NavLink>
       </nav>
     </header>
     <main>
@@ -33,6 +37,9 @@ createRoot(document.getElementById('root')).render(
         <Route path="/" element={<CatalogPage />} />
         <Route path="/my/quizzes" element={<MyQuizzes />} />
         <Route path="/my/quizzes/:quizId/edit" element={<QuizEditor />} />
+        <Route path="/quizzes/:quizId/play" element={<PlayQuiz />} />
+        <Route path="/attempts/:attemptId" element={<AttemptResult />} />
+        <Route path="/me/attempts" element={<MyHistory />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </main>
