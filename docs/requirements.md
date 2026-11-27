@@ -227,21 +227,28 @@ In scope: every **M** requirement in §4, on desktop Chrome or Edge against loca
 
 ### 6.4 Test data (from the QC-20 seed)
 
+The seed is [`data.sql`](../backend/src/main/resources/data.sql), loaded on startup after `schema.sql`. Categories are 1 Geography, 2 Science and 3 Mathematics. The dev-only admin `admin@quizzcraft.local` (user 1) owns every seeded quiz.
+
 | Seed item | Category | Difficulty | Format | Visibility |
 |---|---|---|---|---|
-| Planets Warm-Up (quiz 101, rev 1001) | Science | Easy | Mixed | Published |
-| *TF-only quiz — title from QC-20* | *TBD* | *TBD* | True/False | Published |
-| *MC-only quiz — title from QC-20* | *TBD* | *TBD* | Multiple choice | Published |
-| *Private draft — title from QC-20* | *TBD* | *TBD* | — | Draft (must never appear) |
+| Planets Warm-Up (quiz 101, rev 1001) | Science | Easy | Mixed (2 MC + 1 TF) | Published |
+| Rivers and Mountains (quiz 102, rev 902) | Geography | Medium | True/False (3) | Published |
+| Fractions Challenge (quiz 103, rev 903) | Mathematics | Hard | Multiple choice (3) | Published |
+| Moon Basics (quiz 104, draft rev 904) | Science | Easy | True/False (2) | Draft (must never appear) |
 
-Expected filter results, to fill in once Ghadi's seed is merged:
+The draft would match Science + Easy + True/False if it leaked, so that filter also checks CAT-05. Seeded ids sit at or below the contract's example ids, so the next generated ids are quiz 105 and revision 1002.
+
+Expected filter results, observed on a fresh database with [`qc-20-catalog-check.sql`](qc-20-catalog-check.sql) ([evidence](qc-20-evidence.md)):
 
 | Filters | Expected titles |
 |---|---|
-| none | all published (3) |
-| Science + Easy + True/False | Planets Warm-Up *(+ any TF-only Science/Easy quiz)* |
-| format = Multiple choice | Planets Warm-Up, *MC-only quiz* |
-| *combination with no match* | *(empty → message)* |
+| none | Planets Warm-Up, Rivers and Mountains, Fractions Challenge (3) |
+| Science + Easy + True/False | Planets Warm-Up |
+| format = Multiple choice | Planets Warm-Up, Fractions Challenge |
+| format = True/False | Planets Warm-Up, Rivers and Mountains |
+| Geography + Medium | Rivers and Mountains |
+| Mathematics + Hard | Fractions Challenge |
+| Science + Hard | *(empty → message)* |
 
 ### 6.5 User acceptance scripts
 

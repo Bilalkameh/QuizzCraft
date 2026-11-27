@@ -22,7 +22,7 @@ If using an existing database, set `QUIZZCRAFT_DB_URL`, `QUIZZCRAFT_DB_USER`, an
 
 ## Start the application
 
-Start Spring Boot in one terminal. On startup it creates the category table if needed.
+Start Spring Boot in one terminal. On startup it creates any missing tables (`schema.sql`) and loads the original seed quizzes (`data.sql`, QC-20). Both scripts are safe to rerun on every restart. The seed expects a fresh database. To check the seeded catalog data, see [requirements §6.4](docs/requirements.md#64-test-data-from-the-qc-20-seed).
 
 ```powershell
 cd backend
