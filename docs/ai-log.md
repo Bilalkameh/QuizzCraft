@@ -25,3 +25,13 @@
 - **Implementation** — One PostgreSQL read query powers both routes. It uses the quiz's latest published revision pointer, groups question types by revision, and maps only public metadata. Detail uses the same metadata fields as a catalog item. List order is by quiz ID for a stable result.
 - **Checks** — `mvn -B verify` passed with no Maven tests. The PowerShell API check used a separate PostgreSQL cluster and database, seeded by Spring Boot. See the [observed results and QC-23 example](qc-22-evidence.md).
 - **Review** — Bilal owns review, commit, push, and the Jira update. QC-23 owns the React filters.
+
+
+2026-11-27 · QC-23 · CAT-01, CAT-02 and CAT-04 catalog UI
+Tool and request — Claude Code (Claude Opus 5.5). Rim asked for the next ticket after QC-17. The contract hand-offs assign QC-23 to Rim, and Rim connected the Atlassian and GitHub tools so Claude could read the live tickets.
+Inputs — The live QC-23 issue and QC-22 issue, both read only. Also requirements §4.1, §5.2 and §6.4, and the QC-18 contract §4 and §5.1. Local branch QC-23 starts at master commit a56cc38.
+Human decisions — Rim chose a new branch over committing to master. Rim approved downloading Temurin JDK 21 and Maven 3.9.16 into the ignored .qc19/ folder, and Claude checked both against their published checksums. Commit, push and Jira updates are reserved for Rim. Claude made no Jira or GitHub changes.
+Implementation — frontend/src/catalog/Catalog.jsx replaces the QC-19 category table with the catalog. It has a category select, Any/Easy/Medium/Hard and Any/Multiple choice/True / false radio buttons, cards with all five contract fields plus question count, a "No quizzes match these filters." state with "Clear filters", and a retry on load errors. Superseded requests are aborted. styles.css adds the desktop layout from §5.2. Format uses radio buttons instead of the sketch's checkboxes, because the API accepts one format value.
+Checks — npm.cmd ci and npm.cmd run build passed. QC-22 was still in review (PR #4), so its backend ran from a detached worktree under .qc19/ and was not merged into QC-23. On a fresh PostgreSQL 18.1 database, a headless Edge run of docs/qc-23/qc-23-ui-check.mjs passed every step. Science + Easy + True / false showed only Planets Warm-Up, with the draft absent. Science + Hard showed the empty message, and both Clear filters buttons restored all three quizzes. See the evidence and screenshots.
+Review — Rim's review of the files and screenshots is pending. Re-run the check on master once PR #4 merges.
+
