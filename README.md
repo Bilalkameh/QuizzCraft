@@ -1,6 +1,6 @@
 # QuizzCraft
 
-QuizzCraft currently lists categories from PostgreSQL through the Spring Boot API. The React development server proxies `/api` to Spring Boot.
+QuizzCraft currently shows a signed-out quiz catalog with category, difficulty and format filters (QC-23). The data comes from PostgreSQL through the Spring Boot API, and the React development server proxies `/api` to Spring Boot. The catalog needs the `GET /api/quizzes` endpoint from QC-22.
 
 ## Local setup on Windows
 

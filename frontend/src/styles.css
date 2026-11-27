@@ -1,0 +1,178 @@
+:root {
+  color: #1d2330;
+  background: #f5f6f8;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  line-height: 1.45;
+}
+
+body {
+  margin: 0;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 0.75rem 2rem;
+  background: #1d2330;
+  color: #fff;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+.top-bar a {
+  color: #fff;
+}
+
+main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 3rem;
+}
+
+h1 {
+  margin: 0 0 1.25rem;
+  font-size: 1.6rem;
+}
+
+h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.catalog {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.filters {
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border: 1px solid #d9dde3;
+  border-radius: 8px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0 0 1.1rem;
+  padding: 0;
+  border: 0;
+}
+
+.filter-group legend,
+.filter-group > label {
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+  padding: 0;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+select,
+button {
+  font: inherit;
+}
+
+select {
+  padding: 0.3rem;
+}
+
+button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #2f5fd0;
+  border-radius: 6px;
+  background: #2f5fd0;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  border-color: #c3c8d0;
+  background: #e8eaee;
+  color: #6b7280;
+  cursor: default;
+}
+
+.hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: #9b2c2c;
+}
+
+.count {
+  margin: 0 0 0.75rem;
+  color: #4b5563;
+}
+
+.quiz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-grid[aria-busy='true'] {
+  opacity: 0.6;
+}
+
+.quiz-card {
+  padding: 1rem 1.1rem;
+  background: #fff;
+  border: 1px solid #d9dde3;
+  border-radius: 8px;
+}
+
+.quiz-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.description {
+  margin: 0 0 0.75rem;
+  color: #4b5563;
+}
+
+.quiz-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.quiz-card dl > div {
+  display: contents;
+}
+
+.quiz-card dt {
+  color: #6b7280;
+}
+
+.quiz-card dd {
+  margin: 0;
+}
+
+.notice {
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px dashed #c3c8d0;
+  border-radius: 8px;
+}
+
+.notice p {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+}
