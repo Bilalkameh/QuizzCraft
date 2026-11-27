@@ -35,3 +35,7 @@ QC-22 (`GET /api/quizzes`) was still in review as PR #4, so the UI was checked a
 - The sketch in requirements §5.2 shows format as two checkboxes, but the API accepts one `format` value. The UI uses Any / Multiple choice / True / false radio buttons, so it never sends a combination the API cannot express.
 - Cards do not link to the quiz detail page yet. That screen is not part of QC-23.
 - Re-run this check against `master` after PR #4 merges.
+
+## Re-check on master
+
+After #5 (QC-23) and #4 (QC-22) merged, `master` at `59bc4b5` was rebuilt with `mvn -B verify` and `npm.cmd run build`. It ran against a new, empty `quizzcraft_master` database on the same cluster, and Spring Boot seeded quizzes 101–104 there. `qc-23-ui-check.mjs` passed every step above again, with the same requests and titles.
