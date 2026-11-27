@@ -1,7 +1,7 @@
 # QuizzCraft — API and data contract (QC-18)
 
 Status: **DRAFT for team review** · Requirements: ENG-03, REV-01 · Owner: Ghadi
-Decisions marked **[DECIDE]** need team agreement before they are treated as final.
+Decisions D1–D8 and the access rules are agreed. Still open for Hady: JWT expiry and where React stores the token.
 
 ## 1. Architecture
 
@@ -11,7 +11,7 @@ React (desktop, Vite dev server)  --HTTP/JSON-->  Spring Boot API (/api/**)  --J
 
 - The browser never sees answer keys before submission. Grading, permissions and publication validation happen only on the server.
 - Every route lives under `/api`. In development, the React dev server proxies `/api` to Spring Boot, so the browser treats everything as one origin.
-- Auth: Spring Security session cookie (`JSESSIONID`, HttpOnly). **[DECIDE with Hady, QC-21]** session cookie or JWT. These examples assume the cookie.
+- Auth (**decided: JWT**): login returns a signed JWT (claims: user id, role, expiry). React sends `Authorization: Bearer <token>` on every protected call. The server is stateless. Logout means React discards the token. **[Hady, QC-21]** choose the expiry and where React keeps the token (memory or localStorage).
 
 ## 2. Domain model
 
@@ -47,8 +47,8 @@ User 1───* Quiz 1───* QuizRevision 1───* Question 1───* 
 
 Status codes: `401` not signed in · `403` signed in but not allowed (another user's quiz or attempt, admin route) · `404` the resource does not exist **or** the quiz is removed/unpublished for the public · `422` validation failure.
 
-**[DECIDE]** Another user's attempt: `403` (proposed, matches QC-33 "denied") or `404` (hides that it exists).
-**[DECIDE]** Anonymous play: proposed **sign-in required** to play for this release, since the handoff lists it as undecided.
+**Decided:** another user's attempt returns `403`.
+**Decided:** playing requires sign-in for this release (no anonymous play).
 
 Error body (all 4xx):
 ```json
@@ -61,14 +61,14 @@ Error body (all 4xx):
 | Method & path | Auth | Purpose |
 |---|---|---|
 | `POST /api/auth/register` | — | `{email, password, displayName}` → 201 user · 409 `EMAIL_TAKEN` |
-| `POST /api/auth/login` | — | `{email, password}` → 200 user + cookie · 401 `INVALID_CREDENTIALS` |
-| `POST /api/auth/logout` | user | 204 |
-| `GET /api/auth/me` | — | 200 user or 401 |
+| `POST /api/auth/login` | — | `{email, password}` → 200 `{token, user}` · 401 `INVALID_CREDENTIALS` |
+| `POST /api/auth/logout` | user | 204 (client discards token) |
+| `GET /api/auth/me` | token | 200 user or 401 (missing/expired token) |
 | `GET /api/categories` | — | All categories with `status` (so retired ones stay filterable) |
 | `GET /api/quizzes?categoryId=&difficulty=&format=` | — | Catalog: active quizzes, latest published revision |
 | `GET /api/quizzes/{quizId}` | — | Public detail (no questions) · 404 if removed / never published |
 | `GET /api/quizzes/{quizId}/play` | user | Playable latest revision, **no answer key** |
-| `POST /api/revisions/{revisionId}/attempts` | user | Submit → 201 graded result |
+| `POST /api/revisions/{revisionId}/attempts` | user | Submit → 201 graded result · 410 `QUIZ_REMOVED` if the quiz was removed |
 | `GET /api/me/attempts` | user | Own history, newest first |
 | `GET /api/attempts/{attemptId}` | owner | Full original result |
 | `GET /api/my/quizzes` | user | Own quizzes with draft/published state |
@@ -155,7 +155,7 @@ Publication requires a title, an active category, a difficulty, at least 1 quest
 |---|---|---|---|
 | D1 | Revision identity | `revisionId` is a DB id that is never reused. Play returns it, and submission targets it in the URL. | Submit to 1001 after 1002 is published → graded against 1001 |
 | D2 | Republish during open play | **Accept**: the player is graded on the revision they saw | Same as D1. Result shows rev-1001 questions |
-| D3 | Removal during open play **[DECIDE with Hady, QC-25]** | **Reject**: `410 Gone`, error `QUIZ_REMOVED`, no attempt saved. The UI tells the player the quiz was removed. Alternative: accept, because the revision is immutable. | Open play → admin removes → submit → 410 and attempt count unchanged |
+| D3 | Removal during open play (**decided: reject**) | `410 Gone`, error `QUIZ_REMOVED`, no attempt saved. The UI tells the player the quiz was removed. | Open play → admin removes → submit → 410 and attempt count unchanged |
 | D4 | History after removal | Owners keep full access to past attempts. `quizRemoved: true` is shown in history. | Attempt → remove → restart → `GET /api/attempts/{id}` returns 200 with the original score |
 | D5 | Category retirement | Existing revisions keep the category. It stays in `/api/categories` with `RETIRED` and stays filterable. New drafts and publications that use it → 422. Rename affects display everywhere, including history. | Retire Science → filter still returns Planets Warm-Up → publish with Science → 422 |
 | D6 | Removed quiz, public | Catalog omits it. `/api/quizzes/{id}` and `/play` → 404 | QC-35 checks |
