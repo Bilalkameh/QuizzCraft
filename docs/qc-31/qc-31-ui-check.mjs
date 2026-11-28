@@ -1,12 +1,10 @@
-// QC-31 live check: the QC-33 history and result screens against the real attempt API, in headless Edge.
-// Usage: node docs/qc-31/qc-31-ui-check.mjs <node_modules with playwright-core> <screenshot dir> <path to psql>
-// Needs Spring Boot on 8080 and `npm.cmd run dev` on 5173. Registers two throwaway accounts, and records sample
-// graded attempts with qc-31-sample-attempts.sql because submission (QC-29) is not on master yet.
-import { execFileSync } from 'node:child_process';
+// QC-31 live check: play and submit through the real QC-29 API, then read the saved attempts back through the
+// QC-33 history and result screens, in headless Edge.
+// Usage: node docs/qc-31/qc-31-ui-check.mjs <node_modules with playwright-core> <screenshot dir> [base URL]
+// Needs Spring Boot on 8080 and `npm.cmd run dev` on 5173. Registers two throwaway accounts.
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
 
-const [, , modulesDir, outDir, psql, base = 'http://127.0.0.1:5173'] = process.argv;
+const [, , modulesDir, outDir, base = 'http://127.0.0.1:5173'] = process.argv;
 const require = createRequire(`${modulesDir}/`);
 const { chromium } = require('playwright-core');
 
@@ -29,18 +27,18 @@ for (const player of Object.values(players)) {
   check(response.status === 201, `register ${player.email} → ${response.status}`);
 }
 
-const sql = fileURLToPath(new URL('qc-31-sample-attempts.sql', import.meta.url));
-const [firstId, retakeId] = execFileSync(psql, ['-X', '-h', '127.0.0.1', '-p', '55432', '-U', 'quizzcraft', '-d', 'quizzcraft',
-  '-v', 'ON_ERROR_STOP=1', '-v', `email=${players.a.email}`, '-At', '-f', sql], { encoding: 'utf8' }).trim().split(' ');
-console.log(`Sample attempts for player A: ${firstId} (1/3), ${retakeId} (3/3)`);
-
 const browser = await chromium.launch({ executablePath: EDGE, headless: true });
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
 page.on('response', (r) => {
   const { pathname } = new URL(r.url());
-  if (/^\/api\/(me\/attempts|attempts\/)/.test(pathname)) console.log(`  GET ${pathname} -> ${r.status()}`);
+  if (/^\/api\/(quizzes\/\d+\/play|revisions\/|me\/attempts|attempts\/)/.test(pathname)) {
+    console.log(`  ${r.request().method()} ${pathname} -> ${r.status()}`);
+  }
 });
 const shot = (name) => page.screenshot({ path: `${outDir}/${name}.png`, fullPage: true });
+const pick = (name) => page.getByRole('radio', { name, exact: true }).check();
+const next = () => page.getByRole('button', { name: 'Next ▶' }).click();
+const attemptIdOf = () => page.url().match(/attempts\/(\d+)$/)[1];
 // Navigate inside the app: a full page load would discard the in-memory session (QC-24).
 const openInApp = (path) => page.evaluate((p) => {
   window.history.pushState({}, '', p);
@@ -55,25 +53,50 @@ async function signIn(player) {
   await page.locator('.account-menu').getByText(`Signed in as ${player.displayName}`).waitFor();
 }
 
-// 1. Player A's history lists both attempts, newest first, with their own scores (REV-02).
+// 1. Player A plays "Planets Warm-Up": Mercury, True, blank. The saved result is 1/3 (PLAY-01, REV-01).
 await signIn(players.a);
-await page.getByRole('link', { name: 'My history' }).click();
+await page.locator('.quiz-card', { hasText: 'Planets Warm-Up' }).getByRole('link', { name: 'Start quiz' }).click();
+await page.getByText('Question 1 of 3 · No time limit').waitFor();
+await pick('Mercury');
+await next();
+await pick('True');
+await next();
+await page.getByRole('button', { name: 'Submit quiz' }).click();
+await page.getByRole('button', { name: 'Submit anyway' }).click();
+await page.waitForURL(/\/attempts\/\d+$/);
+await page.getByText('Score 1/3').waitFor();
+const firstId = attemptIdOf();
+check(true, `submission saved attempt ${firstId} with Score 1/3`);
+
+// 2. Retake with every answer correct: a separate attempt, 3/3 (REV-02).
+await page.getByRole('link', { name: 'Retake' }).click();
+await page.getByText('Question 1 of 3 · No time limit').waitFor();
+await pick('Mercury');
+await next();
+await pick('False');
+await next();
+await pick('8');
+await page.getByRole('button', { name: 'Submit quiz' }).click();
+await page.waitForURL((url) => /\/attempts\/\d+$/.test(url.pathname) && !url.pathname.endsWith(`/${firstId}`));
+await page.getByText('Score 3/3').waitFor();
+const retakeId = attemptIdOf();
+check(retakeId !== firstId, `the retake is a separate attempt (${retakeId})`);
+
+// 3. My history lists both, newest first, and reopens the first with its original feedback.
+await page.getByRole('link', { name: 'My history' }).first().click();
 await page.locator('table.my-quizzes tbody tr').first().waitFor();
 const rows = (await page.locator('table.my-quizzes tbody tr').allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim());
-check(rows.length === 2, `history shows 2 attempts: ${JSON.stringify(rows)}`);
-check(rows[0]?.includes('3/3') && rows[1]?.includes('1/3'), 'newest first: the 3/3 retake above the 1/3 attempt');
+check(rows.length === 2 && rows[0].includes('3/3') && rows[1].includes('1/3'), `history newest first: ${JSON.stringify(rows)}`);
 await shot('qc-31-1-history');
-
-// 2. Opening the first attempt shows the saved result and feedback (REV-01).
 await page.getByRole('link', { name: 'Open result' }).nth(1).click();
 await page.getByText('Score 1/3').waitFor();
-check(page.url().endsWith(`/attempts/${firstId}`), `the 1/3 row opens /attempts/${firstId}`);
 const feedback = (await page.locator('.feedback li').allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim());
-check(feedback.length === 3 && feedback[0].includes('Mercury') && feedback[1].includes('Correct answer: False')
-  && feedback[2].includes('blank') && feedback[2].includes('Correct answer: 8'), `feedback: ${JSON.stringify(feedback)}`);
+check(page.url().endsWith(`/attempts/${firstId}`) && feedback.length === 3 && feedback[0].includes('Mercury')
+  && feedback[1].includes('Correct answer: False') && feedback[2].includes('blank') && feedback[2].includes('Correct answer: 8'),
+  `attempt ${firstId} reopens with its original feedback: ${JSON.stringify(feedback)}`);
 await shot('qc-31-2-result');
 
-// 3. Player B cannot read player A's attempt and has an empty history (REV-03).
+// 4. Player B cannot read player A's attempt and has an empty history (REV-03).
 await page.locator('.account-menu').getByRole('button', { name: 'Sign out' }).click();
 await signIn(players.b);
 await openInApp(`/attempts/${firstId}`);
