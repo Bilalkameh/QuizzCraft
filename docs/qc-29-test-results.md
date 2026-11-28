@@ -33,4 +33,19 @@ The full run executed 16 tests. All seven existing account tests passed. Seven o
 
 The new tests exercise hidden keys, scoring, omitted and cleared choices, validation, republication, removal, retakes, access and unpublished targets. The republication and removal tests prepare quiz state through SQL so the maker and moderation endpoints can be developed independently. The two tests for invalid or removed submissions check the HTTP rejection. Verifying that no attempt was written requires the persistence integration. Cross-account history and history after restart also require QC-31.
 
-For the next TDD step, record the team’s decision on the [implementation proposal](qc-29-implementation-proposal.md), then implement and rerun both commands. Link the first test commit, the subsequent implementation commit and the observed results on [QC-29](https://net-team-s2bxx850.atlassian.net/browse/QC-29).
+## After Bilal’s review · 28 November 2026
+
+The [first test commit](https://github.com/Bilalkameh/QuizzCraft/commit/4421457) preserves the initial red result. Bilal requested a case-by-case assignment and a shared transaction with QC-31. The [review record](qc-29-implementation-proposal.md) identifies each owner and the PostgreSQL verification Ghadi and Hady need to run together.
+
+Before implementation, we gave the empty list its own 0/3 test and ran the three invalid requests independently. The revised quiz fixture now has different questions and answer keys for revisions 1001 and 1002. The test submits the original answers to 1001, reopens the quiz on 1002 and submits the same choice label there to check the new feedback.
+
+The PostgreSQL-backed Maven regression run executed all 19 checks. Ten of the twelve play/submission checks failed on missing HTTP routes (404). The existing signed-out and unavailable-target checks passed, along with all seven account tests. The missing routes prevented the scoring and revision assertions from being reached.
+
+```text
+PlaySubmissionIntegrationTest: 12 run, 10 failures, 0 errors, 0 skipped
+AuthAccessIntegrationTest:     7 run,  0 failures, 0 errors, 0 skipped
+[ERROR] Tests run: 19, Failures: 10, Errors: 0, Skipped: 0
+[INFO] BUILD FAILURE
+```
+
+Use the same `mvn -B verify` command above against a development PostgreSQL database to repeat the suite. The next implementation step awaits Ghadi’s confirmation of the shared transaction. Verify the rollback and unchanged row counts with his real store.

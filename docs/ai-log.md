@@ -72,3 +72,7 @@
 ## QC-29 and QC-14 · 28 November 2026
 
 Hady requested the Sprint 2 work that could start immediately. Codex used the approved QC-25 examples, the QC-18 API contract and the current sprint assignments. For QC-29, the first signed-in test expected 201 and observed 404 before implementation. The full run had seven expected failures across sixteen tests. The team’s decision on the proposed implementation is pending. For QC-14, the sprint goal, selected work and review agenda are recorded. Actual effort, demo results and retrospective feedback will be recorded at the team session. [Test commands and results](qc-29-test-results.md) · [Implementation proposal](qc-29-implementation-proposal.md) · [Sprint planning](qc-14-sprint-planning.md)
+
+## QC-29 · Bilal Kameh’s review, 28 November 2026
+
+Hady relayed Bilal’s conditional approval of the scoring design. Bilal will preserve prior published revisions in QC-27. He requested explicit test ownership and one transaction for the removal check, attempt insert and all answer inserts. Codex mapped the nine approved cases, separated the empty-list and invalid-request examples, and strengthened the two-revision test. The PostgreSQL regression run executed 19 checks with 10 expected failures on missing routes. Ghadi’s confirmation and the real-store rollback check remain open. [Review and test ownership](qc-29-implementation-proposal.md) · [Commands and results](qc-29-test-results.md)

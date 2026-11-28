@@ -9,6 +9,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
@@ -113,51 +115,74 @@ class PlaySubmissionIntegrationTest {
         JsonNode questions = finalSelection.required("questions");
         feedback(questions.get(1), 5002, null, 9005, 0);
         feedback(questions.get(2), 5003, null, 9007, 0);
+    }
+
+    @Test
+    void emptyAnswersListScoresZeroOfThree() {
         JsonNode blank = submit(1001, ALL_BLANK, 201);
         assertThat(blank.required("score").intValue()).isZero();
         assertThat(blank.required("maxScore").intValue()).isEqualTo(3);
         assertThat(blank.required("questions").findValuesAsText("points")).containsExactly("0", "0", "0");
     }
 
-    @Test
-    void invalidQuestionWrongChoiceAndDuplicateEachRejectTheWholeSubmission() {
-        for (String invalid : new String[]{
-                "{\"questionId\":4201,\"choiceId\":8201}",
-                "{\"questionId\":5002,\"choiceId\":9002}",
-                "{\"questionId\":5001,\"choiceId\":9001}"}) {
-            String body = "{\"answers\":[{\"questionId\":5001,\"choiceId\":9002}," + invalid + "]}";
-            JsonNode error = submit(1001, body, 422);
-            assertThat(error.required("error").asText()).isEqualTo("VALIDATION_FAILED");
-            assertThat(error.has("attemptId")).isFalse();
-        }
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({
+            "question from another revision, 4201, 8201",
+            "choice from another question,   5002, 9002",
+            "duplicate question,             5001, 9001"
+    })
+    void invalidQuestionWrongChoiceAndDuplicateEachRejectTheWholeSubmission(String scenario, int question, int choice) {
+        String body = """
+                {"answers":[{"questionId":5001,"choiceId":9002},{"questionId":%d,"choiceId":%d}]}
+                """.formatted(question, choice);
+        JsonNode error = submit(1001, body, 422);
+        assertThat(error.required("error").asText()).as(scenario).isEqualTo("VALIDATION_FAILED");
+        assertThat(error.has("attemptId")).isFalse();
     }
 
     @Test
     void republicationChangesNewPlayButStillGradesTheOpenedRevision() {
-        assertThat(play(101, 200).required("revisionId").asLong()).isEqualTo(1001);
-        // Stand in for the maker's publish operation, using real immutable revision rows.
-        long revision = db.queryForObject("""
-                INSERT INTO quiz_revisions (quiz_id, number, state, title, category_id, difficulty, published_at)
-                VALUES (101, 2, 'PUBLISHED', 'Revised quiz', 2, 'EASY', NOW()) RETURNING id
-                """, Long.class);
-        long question = db.queryForObject("""
-                INSERT INTO questions (revision_id, position, type, text) VALUES (?, 1, 'TRUE_FALSE', 'Venus is closest.')
-                RETURNING id
-                """, Long.class, revision);
+        JsonNode opened = play(101, 200);
+        assertThat(opened.required("revisionId").asLong()).isEqualTo(1001);
+        assertThat(opened.at("/questions/0/text").asText()).isEqualTo("Which planet is closest to the Sun?");
+
+        // Simulate QC-27 publishing an immutable revision. The same three planets are offered,
+        // but the new question asks for the second planet, so Venus replaces Mercury as the key.
         db.update("""
-                INSERT INTO choices (question_id, position, text, is_correct)
-                VALUES (?, 1, 'True', false), (?, 2, 'False', true)
-                """, question, question);
-        db.update("UPDATE quizzes SET latest_published_revision_id = ? WHERE id = 101", revision);
+                INSERT INTO quiz_revisions (id, quiz_id, number, state, title, category_id, difficulty, published_at)
+                VALUES (1002, 101, 2, 'PUBLISHED', 'Revised quiz', 2, 'EASY', NOW())
+                """);
+        db.update("""
+                INSERT INTO questions (id, revision_id, position, type, text)
+                VALUES (5101, 1002, 1, 'MULTIPLE_CHOICE', 'Which planet is second from the Sun?')
+                """);
+        db.update("""
+                INSERT INTO choices (id, question_id, position, text, is_correct) VALUES
+                (9101, 5101, 1, 'Venus', true), (9102, 5101, 2, 'Mercury', false), (9103, 5101, 3, 'Mars', false)
+                """);
+        db.update("UPDATE quizzes SET latest_published_revision_id = 1002 WHERE id = 101");
         try {
-            JsonNode fresh = play(101, 200);
-            assertThat(fresh.required("revisionId").asLong()).isEqualTo(revision);
-            assertThat(fresh.required("title").asText()).isEqualTo("Revised quiz");
             JsonNode original = submit(1001, MIXED, 201);
             assertThat(original.required("title").asText()).isEqualTo("Planets Warm-Up");
             assertThat(original.required("revisionId").asLong()).isEqualTo(1001);
             assertThat(original.required("score").intValue()).isEqualTo(1);
+            assertThat(original.required("maxScore").intValue()).isEqualTo(3);
+            assertThat(original.at("/questions/0/text")).isEqualTo(opened.at("/questions/0/text"));
             feedback(original.required("questions").get(0), 5001, 9002, 9002, 1);
+
+            JsonNode fresh = play(101, 200);
+            assertThat(fresh.required("revisionId").asLong()).isEqualTo(1002);
+            assertThat(fresh.at("/questions/0/text").asText()).isEqualTo("Which planet is second from the Sun?");
+            assertThat(fresh.at("/questions/0/choices").findValuesAsText("text"))
+                    .containsExactly("Venus", "Mercury", "Mars");
+
+            JsonNode revised = submit(1002, """
+                    {"answers":[{"questionId":5101,"choiceId":9102}]}
+                    """, 201);
+            assertThat(revised.required("revisionId").asLong()).isEqualTo(1002);
+            assertThat(revised.required("score").intValue()).isZero();
+            assertThat(revised.required("maxScore").intValue()).isOne();
+            feedback(revised.required("questions").get(0), 5101, 9102, 9101, 0);
         } finally {
             db.update("UPDATE quizzes SET latest_published_revision_id = 1001 WHERE id = 101");
         }

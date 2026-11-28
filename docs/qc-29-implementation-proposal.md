@@ -1,23 +1,36 @@
-# QC-29 scoring and submission · proposal for team review
+# QC-29 scoring and submission · reviewed proposal
 
-Rim approved the scoring rules and nine acceptance cases on 27 November. This proposal maps them to the backend at `4b7be93`. Hady and the team can use it to review the implementation before writing production code. [Approved specification and review](https://net-team-s2bxx850.atlassian.net/browse/QC-25) · [QC-29](https://net-team-s2bxx850.atlassian.net/browse/QC-29) · [API examples, sections 5.2–5.5](../api-contract.md)
+Rim approved the scoring rules and nine acceptance cases on 27 November. Bilal Kameh reviewed the proposal in commit `4421457` on 28 November 2026. He supports grading the opened revision, hiding the key until submission, returning feedback after saving and the split between Hady and Ghadi. His approval is conditional on a shared transaction agreement with Ghadi and a test owner for each approved case. The case assignments are below. Ghadi’s agreement is pending. [Approved specification and review](https://net-team-s2bxx850.atlassian.net/browse/QC-25) · [QC-29](https://net-team-s2bxx850.atlassian.net/browse/QC-29) · [API examples, sections 5.2–5.5](../api-contract.md)
 
-## Smallest implementation to review
+## Submission design
 
 1. Add a play/submission controller under `com.quizzcraft.play`. Both routes already require a valid JWT. For `GET /api/quizzes/{id}/play`, read the active quiz’s latest published revision with the existing Spring `JdbcClient`. Order questions and choices by position. The public response contains only quiz ID, revision ID, title, questions and choices as in section 5.2. An explicit list of response fields keeps the answer key private.
-2. For `POST /api/revisions/{id}/attempts`, take the owner from the JWT subject and load the published revision named in the URL. A draft or missing revision returns 404. A removed quiz returns 410 with `QUIZ_REMOVED`; opening a new play on it returns 404. If the maker published a newer revision in the meantime, grade the original.
+2. For `POST /api/revisions/{id}/attempts`, take the owner from the JWT subject and load the published revision named in the URL. A draft or missing revision returns 404. A removed quiz returns 410 with `QUIZ_REMOVED`. Opening a new play on it returns 404. If the maker published a newer revision in the meantime, grade the original.
 3. Give the grading service the revision’s ordered questions and the submitted answers. Validate the entire request before saving. Reject duplicate questions, questions outside the revision and choices outside their question with 422. Treat omitted questions and explicit null choices as blank. Award one point for a correct choice, zero otherwise. Return one feedback entry per question and include all questions in the denominator.
 4. Pass the authenticated owner ID, attempted revision ID, score, maximum score and per-question results to the attempt store. Its save operation writes the attempt and answers together and returns the generated ID and submission time. Guard the removal check and save in the same transaction by locking the quiz row against concurrent removal. Return 201 and the section 5.4 feedback only after a successful save. A retake creates a new attempt.
 
-## Work the team can do in parallel
+## Transaction agreement for QC-29 and QC-31
 
-| Owner | Implementation boundary and integration check |
-|---|---|
-| Hady · QC-29 | Implement the two routes, revision read and grading rules. Use a test-only attempt store when exercising scoring independently. The first failing example uses revision 1001, choices 9002 and 9004, and a blank. Expect 1/3 and points `[1, 0, 0]`. |
-| Bilal · QC-27 | Publish immutable revisions with separate question and choice rows, and update the quiz’s latest revision pointer. Integrate by opening revision 1, publishing revision 2 with a different key, submitting revision 1, then opening a fresh play. [QC-27](https://net-team-s2bxx850.atlassian.net/browse/QC-27) |
-| Ghadi · QC-31 | Own the PostgreSQL attempt tables, save implementation and owner-only history endpoints. Agree the save inputs and return values above. Integrate by checking two retakes, denied access for a second player, then the original score after republication, removal and restart. [QC-31](https://net-team-s2bxx850.atlassian.net/browse/QC-31) |
-| Rim · QC-33 | Exercise the player screens against the real play and submission routes. Compare the 201 body, including the choice-ID-to-text map, with the existing player fixture. [QC-33](https://net-team-s2bxx850.atlassian.net/browse/QC-33) |
+Hady’s submission service opens one Spring transaction and locks the quiz row before checking its removal status. It holds that lock while validating and grading the opened revision and calling Ghadi’s store. The store uses the same transaction and database connection to insert the attempt and every answer. An insert failure propagates out of the service so PostgreSQL rolls back all of those writes. The controller sends 201 only after commit. A removal that commits first yields 410. A removal that waits for a successful submission preserves the saved attempt.
 
-## Decision to record
+Hady and Ghadi will verify the boundary against PostgreSQL. In an isolated test schema, record the attempt and answer row counts, force an answer insert to fail after the attempt insert, then query from a separate connection after rollback. Both counts must equal their initial values. Repeat the count checks after the three invalid requests in case 04 and after removal in case 06. A test double can check the values Hady passes for grading. The database checks require Ghadi’s real store.
 
-Can the team accept the grading rules in step 3, the save interface in step 4, and the split of work above? Record the reviewer, date, decision and any requested change on QC-29 after the review. Keep the failing-test commit before the implementation commit and link both test outputs.
+**Question for Ghadi** “Can your QC-31 store join the transaction opened by QC-29, propagate any insert failure, and verify rollback of the attempt and all answers in PostgreSQL with me?”
+
+## Nine approved cases and test owners
+
+The table names the QC-29 tests, including the review changes that separate the empty list and exercise each invalid request independently. The original test-first run recorded seven failing play/submission tests, a passing signed-out check and a passing draft/unknown 404 check. The integration checks in the last column are planned. [Test-first commit](https://github.com/Bilalkameh/QuizzCraft/commit/4421457) · [Recorded output](qc-29-test-results.md)
+
+| QC-25 case | Existing automated check | Owner and remaining verification |
+|---|---|---|
+| 01 · Hidden key | `playIncludesBothFormatsAndNeverRevealsKeysOrFeedback` | Hady (QC-29) checks the complete play payload for leaked keys or points. Rim (QC-33) checks the player view against the live API. |
+| 02 · Mixed formats | `mixedSubmissionReturnsOneOfThreeWithFeedback` | Hady (QC-29) checks that correct, wrong and blank yield 201, 1/3 and points [1, 0, 0]. Ghadi (QC-31) verifies the saved record and answers. |
+| 03 · Edit, clear, skip | `finalSelectionsExplicitBlanksAndOmissionsAreGradedOnce` and `emptyAnswersListScoresZeroOfThree` | Hady (QC-29) checks final choices, explicit null, omitted answers and an empty list scoring 0/3. Rim (QC-33) verifies changing and clearing a choice on screen. |
+| 04 · Invalid selections | `invalidQuestionWrongChoiceAndDuplicateEachRejectTheWholeSubmission` | Hady (QC-29) checks 422 for a foreign question, a choice belonging to another question, and a duplicate question in three independent runs. Ghadi (QC-31) verifies unchanged attempt and answer counts for each request. |
+| 05 · Revision changes | `republicationChangesNewPlayButStillGradesTheOpenedRevision` | Hady (QC-29) verifies that submitting revision 1001 returns its original score and feedback and that opening the quiz again serves revision 1002 with the revised quiz. Verify 1002’s changed key in post-submission feedback. Bilal (QC-27) will publish an immutable 1002 through the real maker API while preserving 1001. The existing test sets up republication through SQL. |
+| 06 · Removal during play | `removalDuringPlayRejectsSubmissionAndHidesNewPlay` | Hady (QC-29) checks 410 `QUIZ_REMOVED` on submit and 404 on a fresh play. Ghadi (QC-31) verifies zero additional attempt and answer rows. Hady (QC-35, Sprint 3) verifies the real moderation route. |
+| 07 · Retakes | `distinctRetakesCarryTheirOwnScores` | Hady (QC-29) checks distinct IDs and individual scores. Ghadi (QC-31) verifies that both records belong to the same player and retain their original answers. |
+| 08 · Access | `signedOutPlayersCannotOpenPlayOrSubmit` and `visitorsCanBrowseButCannotCreatePlaySubmitOrReadHistory` | Hady (QC-21/QC-29) owns signed-out 401 checks for play, submit and history. Ghadi (QC-31) owns the second-account checks. Detail returns 403 and the other player’s history excludes that attempt. |
+| 09 · Preserved history | Planned PostgreSQL restart and history test | Ghadi (QC-31) signs in again as the owner after republication, removal and restart. Check the original title, questions, responses, feedback and score in detail, and `quizRemoved=true` in history. Bilal (QC-27) supplies republication, Hady (QC-35) supplies moderation, and Rim (QC-33) checks reopening the saved result in the UI. |
+
+[Scoring and sign-in tests](../backend/src/test/java/com/quizzcraft) · [Bilal’s publishing ticket](https://net-team-s2bxx850.atlassian.net/browse/QC-27) · [Ghadi’s storage ticket](https://net-team-s2bxx850.atlassian.net/browse/QC-31) · [Rim’s player ticket](https://net-team-s2bxx850.atlassian.net/browse/QC-33) · [Hady’s moderation ticket](https://net-team-s2bxx850.atlassian.net/browse/QC-35)
