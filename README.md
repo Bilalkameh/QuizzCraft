@@ -41,6 +41,21 @@ npm.cmd run dev
 
 React runs at <http://127.0.0.1:5173/> and the API at <http://127.0.0.1:8080/api/categories>.
 
+## Account API and tests (QC-21)
+
+The backend supports registration, login, current-user lookup and logout under `/api/auth`. Use the [request and response contract](api-contract.md#4-routes) to connect the desktop sign-in screen in QC-24. A registered account can both create and play quizzes. The server assigns every new account the `USER` role.
+
+The bearer token lasts one hour by default. The desktop client should keep it in memory and clear it on logout or page reload. The backend generates a new signing key on startup for local development. To keep tokens valid across backend restarts, supply a stable `QUIZZCRAFT_JWT_SECRET` containing at least 32 random bytes encoded in Base64. To change the lifetime, set `QUIZZCRAFT_TOKEN_TTL` to a duration such as `PT1H`. Keep any configured key out of Git. User accounts persist in PostgreSQL independently of the signing key.
+
+To run the HTTP integration tests, start PostgreSQL using the setup above. From `backend`, pass the JDBC URL of a development or test database. The role must be able to create a schema. Each run creates and removes its own isolated test schema. Without the test URL, Maven skips the database integration suite.
+
+```powershell
+$env:QUIZZCRAFT_TEST_DB_URL = 'jdbc:postgresql://127.0.0.1:55432/quizzcraft'
+mvn -B verify
+```
+
+On macOS, Linux or Git Bash, use `QUIZZCRAFT_TEST_DB_URL=jdbc:postgresql://127.0.0.1:55432/quizzcraft mvn -B verify`. Use the same `QUIZZCRAFT_DB_USER` and `QUIZZCRAFT_DB_PASSWORD` described above if your PostgreSQL credentials differ. [QC-21 verification results](docs/qc-21-evidence.md).
+
 ## Verify database persistence
 
 From a third PowerShell terminal at the repository root, run the insert once after Spring Boot has started. Keep this terminal open so the same label is available after restart.
