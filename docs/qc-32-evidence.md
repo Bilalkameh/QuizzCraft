@@ -1,8 +1,8 @@
-# QC-32 maker screens: interim verification
+# QC-32 maker screens: verification
 
 2026-11-27 · Local branch `QC-32` from `master` at `3bb9306` · MAKE-01 to MAKE-05 (UI side), ACC-03 for the maker routes.
 
-**Status: built and checked against a stand-in API.** The real maker API (QC-27) and sign-in (QC-21, QC-24) were still To Do, and `GET /api/my/quizzes` on `master` returned `404`. As QC-32 asks, the screens were built against the contract while the API is developed. The ticket's real-API verification is still open (see [Still to verify](#still-to-verify)).
+**Status: verified against the real API on 2026-11-28** (see [Real-system walkthrough](#real-system-walkthrough)). The screens were first built and checked against a stand-in, because the real maker API (QC-27) and sign-in (QC-21, QC-24) were still To Do and `GET /api/my/quizzes` on `master` returned `404`. That interim check is kept below for the record.
 
 ## What was built
 
@@ -50,10 +50,27 @@ Other assumptions: the client sends `null` for an unset category or difficulty, 
 
 `npm.cmd run build` passed. After the routing change, the QC-23 catalog check (`docs/qc-23/qc-23-ui-check.mjs`) still passed every step against the real `master` backend.
 
-## Still to verify
+## Real-system walkthrough
 
-The ticket requires a check with the real API. When QC-27 and QC-21 are merged:
+2026-11-28 · Branch `qc-32-33-integration` from `master` at `569f382`, after QC-21, QC-24, QC-27, QC-29, QC-31 and QC-30 merged. QC-32 itself had merged as #7.
 
-1. Compare QC-27's bodies with the table above and adjust `api.js` if needed.
-2. Replace the placeholder in `auth.js` with QC-21's token storage. Change the check script to sign in instead of setting a fake token.
-3. Re-run `qc-32-ui-check.mjs` against the real backend. Confirm that publishing adds the quiz to the catalog and that a second account gets `403`, then record the walkthrough here.
+**Contract match.** QC-27's `MakerController` and `MakerModels` use the shapes proposed above field for field: `QuizSummary`, `Published`, `CreatedQuiz`, `Draft`/`DraftInput`, `Question`, `Choice` with `isCorrect`, and `Publication`. A non-owner gets `403 FORBIDDEN`. No frontend change was needed. QC-24 had already replaced the `auth.js` placeholder with an in-memory session, and protected screens now redirect to `/signin`.
+
+**Setup.**
+- PostgreSQL 18.1 local cluster on `127.0.0.1:55432` with a new, empty `quizzcraft_qc3233` database.
+- Backend `mvn -B verify` passed (JDK 21.0.13, Maven 3.9.16). `QUIZZCRAFT_TEST_DB_URL` was not set, so the integration tests were skipped. SpotBugs reported three findings in `AccountService`, `AuthSecurity` and `Category`. These are report-only (QC-30) and outside this ticket.
+- Spring Boot ran from the packaged JAR, seeded the database and generated its own signing key.
+- Frontend: `npm.cmd ci`, `npm.cmd run lint` (no findings), `npm.cmd run build`, then `npm.cmd run dev`.
+
+[`qc-32/qc-32-real-check.mjs`](qc-32/qc-32-real-check.mjs) registers two fresh accounts through `POST /api/auth/register`, with random passwords that are not recorded. It signs in through the real sign-in screen. The token lives in memory, so every full page load signs in again through the redirect. 12 of 12 checks passed. The first run hit a script error that read the `401` sent before sign-in instead of the response after it, and the server had returned `403`. The script was fixed and run again with new accounts, so the catalog lists two "Ocean Basics" quizzes (105 and 106). The results below are from the second run, quiz 106.
+
+| Step | Real responses | Observed | Result |
+| --- | --- | --- | --- |
+| Signed out, open My quizzes | `GET /api/my/quizzes` → 401 | Redirected to sign-in with "Sign in to make quizzes." | PASS |
+| playerA: New quiz, Publish empty | `POST` → 201, `PUT draft` → 200, `POST publish` → 422 | "Title: Enter a title", "Category: Choose an active category", "Difficulty: Choose Easy, Medium or Hard", "Questions: Add at least one question" | PASS |
+| One MC (3 choices, Pacific correct) and one TF without a correct answer, Save draft | `PUT draft` → 200 | "Draft saved." | PASS |
+| Full reload and sign in again, reopen | `GET draft` → 200 | Every field, all 3 choices and the correct mark intact. Title absent from `GET /api/quizzes` (MAKE-01) | PASS |
+| Publish | `POST publish` → 422 | "Question 2: Exactly one choice must be correct". Question 2 highlighted, question 1 not (MAKE-03) | PASS ([screenshot](qc-32/qc-32-real-1-validation.png)) |
+| Mark False, Publish | `POST publish` → 201 | "Published as revision 1." The catalog card shows Geography, Easy, Mixed (MAKE-04) | PASS ([screenshot](qc-32/qc-32-real-2-catalog.png)) |
+| Change Q1, Publish | `POST publish` → 201 | My quizzes: "Published, revision 2" | PASS ([screenshot](qc-32/qc-32-real-3-my-quizzes.png)) |
+| playerB: My quizzes, then playerA's edit URL | `GET draft` → **403** | Quiz absent from playerB's list. "Only the quiz owner can edit or publish this quiz." and no form (MAKE-05) | PASS ([screenshot](qc-32/qc-32-real-4-denied.png)) |

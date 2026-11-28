@@ -1,19 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { player } from '../api.js';
+import { useSession } from '../auth.js';
 import { SignInRequired } from '../maker/errors.jsx';
 import { formatDateTime } from './format.js';
 
 export default function AttemptResult() {
   const { attemptId } = useParams();
   const location = useLocation();
+  const session = useSession();
   // Right after submitting, the 201 body is passed along so the result shows without a second request.
+  // The browser keeps that state across reloads, so it is used only while signed in. Otherwise the result
+  // is loaded from the server, which asks for sign-in.
   const fresh = location.state?.result;
-  const initial = fresh && String(fresh.attemptId) === attemptId ? fresh : null;
+  const initial = session && fresh && String(fresh.attemptId) === attemptId ? fresh : null;
   const [load, setLoad] = useState({ result: initial, error: null });
 
   useEffect(() => {
-    if (initial) return undefined;
+    if (initial) {
+      setLoad({ result: initial, error: null });
+      return undefined;
+    }
     const request = new AbortController();
     setLoad({ result: null, error: null });
     player.getAttempt(attemptId, request.signal)
