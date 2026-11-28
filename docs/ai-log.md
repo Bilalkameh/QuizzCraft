@@ -68,3 +68,9 @@
 - **Implementation** — The token is held in memory per the contract, replacing the `localStorage` placeholder, and is dropped on sign-out, JWT expiry, an API `401` or reload. Added the sign-in and registration screens and the top-bar account menu. The shared `SignInRequired` component now redirects, so the maker and player screens needed no change.
 - **Checks** — `npm.cmd run build` passed. Against the live API on 8080 with Vite on 5173, `docs/qc-24/qc-24-ui-check.mjs` passed 24 of 24 headless Edge checks, including one successful and one denied sign-in. Screenshot review found two problems, a premature "signed in" screenshot and a top bar that grew 8 px after sign-in, and both were fixed before the final run. See the [evidence](qc-24-evidence.md).
 - **Review** — Ghadi's review is pending. The checkers for QC-32 and QC-33 still inject a `localStorage` token and need updating by their owner.
+
+## 2026-11-28 · QC-27 · Private drafts and publication
+
+- **Scope** — Bilal requested the maker backend on `QC-27` from `4b7be93f68b8463a5370624d5e71641a59c08b59`. Implemented MAKE-01–06, ACC-03 and revision preservation for REV-01 using live QC-27, the QC-18 contract and QC-32 payloads.
+- **Decisions** — Owner identity comes from the JWT subject. Maker transactions lock the owned quiz row. Publication promotes the draft and updates the public pointer atomically. Later drafts copy question and choice content to new rows. The optional description and 2–6 multiple-choice options follow QC-32. Human review is Pending.
+- **Checks** — `mvn -B verify` against a separate PostgreSQL 16 database passed all 10 tests. The signed-out `./backend/scripts/check-catalog.ps1` regression passed. Real API requests confirmed validation, ownership denials, preserved revision rows and the catalog switch. [Commands, results and QC-32 payloads](qc-27-evidence.md)
