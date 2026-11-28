@@ -74,3 +74,21 @@
 - **Scope** — Bilal requested the maker backend on `QC-27` from `4b7be93f68b8463a5370624d5e71641a59c08b59`. Implemented MAKE-01–06, ACC-03 and revision preservation for REV-01 using live QC-27, the QC-18 contract and QC-32 payloads.
 - **Decisions** — Owner identity comes from the JWT subject. Maker transactions lock the owned quiz row. Publication promotes the draft and updates the public pointer atomically. Later drafts copy question and choice content to new rows. The optional description and 2–6 multiple-choice options follow QC-32. Human review is Pending.
 - **Checks** — `mvn -B verify` against a separate PostgreSQL 16 database passed all 10 tests. The signed-out `./backend/scripts/check-catalog.ps1` regression passed. Real API requests confirmed validation, ownership denials, preserved revision rows and the catalog switch. [Commands, results and QC-32 payloads](qc-27-evidence.md)
+## QC-29 and QC-14 · 28 November 2026
+
+Hady requested the Sprint 2 work that could start immediately. Codex used the approved QC-25 examples, the QC-18 API contract and the current sprint assignments. For QC-29, the first signed-in test expected 201 and observed 404 before implementation. The full run had seven expected failures across sixteen tests. The team’s decision on the proposed implementation is pending. For QC-14, the sprint goal, selected work and review agenda are recorded. Actual effort, demo results and retrospective feedback will be recorded at the team session. [Test commands and results](qc-29-test-results.md) · [Implementation proposal](qc-29-implementation-proposal.md) · [Sprint planning](qc-14-sprint-planning.md)
+
+## QC-29 · Bilal Kameh’s review, 28 November 2026
+
+Hady relayed Bilal’s conditional approval of the scoring design. Bilal will preserve prior published revisions in QC-27. He requested explicit test ownership and one transaction for the removal check, attempt insert and all answer inserts. Codex mapped the nine approved cases, separated the empty-list and invalid-request examples, and strengthened the two-revision test. The PostgreSQL regression run executed 19 checks with 10 expected failures on missing routes. Ghadi’s confirmation and the real-store rollback check remain open. [Review and test ownership](qc-29-implementation-proposal.md) · [Commands and results](qc-29-test-results.md)
+
+## QC-29 · Submission implementation, 28 November 2026
+
+Hady reported that Ghadi delegated the transaction decision and asked Codex to proceed. QC-29 now locks the quiz row in the submission transaction and uses a write adapter that requires that transaction. It saves the authenticated owner, opened revision, score and every answer together. Ghadi can use those tables for QC-31’s private history reads.
+
+The original failing example at `4421457` now returns 201 and 1/3. The focused run passed, then `mvn -B verify` passed all 23 PostgreSQL-backed tests with zero skipped. Forcing the second answer insert to fail rolled back the first answer and the attempt. Two concurrent-transaction tests verified the quiz lock through saving and the removal-first 410 outcome. A signed-in Chromium run displayed 1/3, and the same saved rows survived a PostgreSQL and Spring Boot restart. [Test commands and observed results](qc-29-test-results.md) · [Review and transaction decision](qc-29-implementation-proposal.md)
+## 2026-11-28 · QC-26 · Catalog boundary review
+
+- **Scope** — At `4b7be93f68b8463a5370624d5e71641a59c08b59`, reviewed CAT-01–05, MAKE-05/06, PLAY-01/02/04/05, REV-01 and ENG-03 using live Jira, the QC-18 contract and the approved QC-25 attachment. [Review and source record](qc-26-review.md)
+- **Commands and outcome** — `git status --short` was empty. Switched to master, ran `git pull --ff-only origin master` and created QC-26. `mvn -B verify` with the README's PostgreSQL test URL passed all 7 tests. `./backend/scripts/check-catalog.ps1` passed all signed-out checks, including metadata shape and revision 1001 → 1002 after a SQL pointer update.
+- **Human review** — Pending. Publication pointer constraints and published-content immutability are proposed for QC-36 and QC-37. QC-27 ownership and QC-29 privacy and grading still need backend verification. Fix links are Pending.
