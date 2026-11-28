@@ -109,3 +109,12 @@ The original failing example at `4421457` now returns 201 and 1/3. The focused r
 - **Human decision** — Ghadi approved the proposed fix: QC-29's store remains the only writer, and QC-31's class becomes read-only. Hady's code is unchanged.
 - **Fix** — Resolved `schema.sql` to one `attempts` definition (QC-29's `statement_timestamp()` default, plus QC-31's 7001 start and history index). Replaced `attempt/AttemptStore` with the read-only `AttemptHistory`, and rewrote the QC-31 tests and live check to create attempts through the real `POST /api/revisions/{id}/attempts` instead of sample data.
 - **Checks** — `mvn -B verify` against PostgreSQL 16.16 ran 28 tests with 0 failures (QC-31 5, QC-21 7, QC-29 16). The headless Edge play, submit and history check passed 8 of 8. See the [evidence](qc-31-evidence.md).
+
+## 2026-11-28 · QC-30 · ENG-GQM quality baseline
+
+- **Tool and request** — Claude Code (Claude Opus 5.5). Ghadi asked to do QC-30 after QC-31.
+- **Inputs** — The live [QC-30 issue](https://net-team-s2bxx850.atlassian.net/browse/QC-30) (read only), requirements §6.2 (the Quality row), and QC-40, which repeats the measurement. The baseline commit is `4b7be93`. Branch `QC-30` was fast-forwarded to `origin/master` `3a9dcf2` at Ghadi's request.
+- **Human decisions** — Ghadi chose `4b7be93`, the last Sprint 1 master commit, as the baseline, and chose to add the tools to the build so QC-40 can rerun one command. Ghadi owns the commit, push and Jira updates.
+- **Implementation** — Added the JaCoCo 0.8.16 and SpotBugs plugin 4.10.5.0 plugins to `pom.xml` (SpotBugs reports without failing the build), and ESLint 9.39.5 with pinned React plugins, `eslint.config.js` and `npm run lint` to the frontend. The baseline commit was exported with `git archive` and measured with the same pinned versions from the command line. Local paths were removed from the saved SpotBugs report.
+- **Checks** — Baseline: 7 tests, 91.9% lines, 50.0% branches, 3 SpotBugs findings (all judged false positive or low risk; the priority-1 `DMI_RANDOM_USED_ONLY_ONCE` is explained) and 0 ESLint problems in 15 files. A planted lint file produced the expected 4 errors. On the branch, `mvn -B verify` ran 31 tests with both reports and BUILD SUCCESS, and `npm run lint` passed. A first baseline run was discarded because PowerShell's `Select-Object -First` cut Maven off mid-run. See the [baseline](qc-30-quality-baseline.md).
+- **Review** — Ghadi's review is pending. The QC-40 targets in the baseline are proposals for the team.
