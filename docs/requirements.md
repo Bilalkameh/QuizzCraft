@@ -293,4 +293,4 @@ These need a team answer at the Sprint 1 review (record it on QC-12).
 7. **Description** is assumed optional for publication. The contract lists title, active category, difficulty, ≥1 question and one correct choice.
 8. **MC choice count.** The contract does not say. Proposal: 2–6 choices per MC question, enforced at publication (422).
 9. **Blank-answer confirmation** before submit (§5.2) is a UI convenience only. The server still accepts blanks and scores them 0.
-10. **Token expiry and storage** are still open with Hady (QC-21). They affect how ACC-03 redirects after expiry.
+10. **Token expiry and storage (QC-21).** The default lifetime is one hour. The QC-24 client should hold the token in React memory and prompt for sign-in on expiry or when a protected action follows a page reload.
