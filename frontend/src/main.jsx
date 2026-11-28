@@ -1,6 +1,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router';
+import AccountMenu from './account/AccountMenu.jsx';
+import Register from './account/Register.jsx';
+import SignIn from './account/SignIn.jsx';
 import Catalog from './catalog/Catalog.jsx';
 import MyQuizzes from './maker/MyQuizzes.jsx';
 import QuizEditor from './maker/QuizEditor.jsx';
@@ -31,10 +34,13 @@ createRoot(document.getElementById('root')).render(
         <NavLink to="/my/quizzes">My quizzes</NavLink>
         <NavLink to="/me/attempts">My history</NavLink>
       </nav>
+      <AccountMenu />
     </header>
     <main>
       <Routes>
         <Route path="/" element={<CatalogPage />} />
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/my/quizzes" element={<MyQuizzes />} />
         <Route path="/my/quizzes/:quizId/edit" element={<QuizEditor />} />
         <Route path="/quizzes/:quizId/play" element={<PlayQuiz />} />

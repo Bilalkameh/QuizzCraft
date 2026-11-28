@@ -1,14 +1,19 @@
 import React from 'react';
+import { Navigate, useLocation } from 'react-router';
 
+// Protected screens render this after a 401. It sends the visitor to sign-in (QC-24, ACC-03),
+// shows this message there, and returns to the same page after sign-in.
 export function SignInRequired({
   message = 'Sign in to make quizzes.',
   hint = 'Making and editing quizzes needs an account.',
 }) {
+  const location = useLocation();
   return (
-    <div role="alert" className="notice">
-      <p>{message}</p>
-      <p className="hint-text">{hint}</p>
-    </div>
+    <Navigate
+      to="/signin"
+      replace
+      state={{ from: `${location.pathname}${location.search}`, message, hint }}
+    />
   );
 }
 
