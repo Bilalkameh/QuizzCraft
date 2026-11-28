@@ -1,10 +1,8 @@
-# QC-33 player, result and history: interim verification
+# QC-33 player, result and history: verification
 
 2026-11-27 · Local branch `QC-33`, stacked on `QC-32` at `bc4a834` · PLAY-01 to PLAY-06, REV-01, ACC-03 for play and history.
 
-**Status: built and checked against a stand-in API.** Scoring and submission (QC-29), attempt storage and history (QC-31) and sign-in (QC-21) were still To Do, and `GET /api/quizzes/101/play` on `master` returned `404`. As QC-33 asks, the screens were built against fixtures while scoring and storage are developed. The ticket's integrated walkthrough is still open (see [Still to verify](#still-to-verify)).
-
-The branch builds on QC-32 because it reuses that branch's `api.js`, `auth.js` and routing. **Merge QC-32 first.**
+**Status: verified against the real API on 2026-11-28, with real attempt IDs 7009–7012** (see [Integrated walkthrough](#integrated-walkthrough)). The walkthrough found one bug, now fixed: a reloaded result page could show the result while signed out. The screens were first built and checked against fixtures, because QC-29, QC-31 and QC-21 were still To Do. That interim check is kept below for the record.
 
 ## Sources
 
@@ -45,10 +43,28 @@ The branch builds on QC-32 because it reuses that branch's `api.js`, `auth.js` a
 
 `npm.cmd run build` passed. On this branch, the QC-32 maker check still passed 14 of 14 against its stand-in. The QC-23 catalog check still passed against the real `master` backend.
 
-## Still to verify
+## Integrated walkthrough
 
-QC-33 requires an integrated walkthrough with real attempt IDs. When QC-29, QC-31 and QC-21 are merged:
+2026-11-28 · Branch `qc-32-33-integration` from `master` at `569f382`, after QC-21, QC-24, QC-27, QC-29, QC-31 and QC-30 merged. QC-33 itself had merged as #8. The setup is the same as the [QC-32 real-system walkthrough](qc-32-evidence.md#real-system-walkthrough): a fresh `quizzcraft_qc3233` database seeded by Spring Boot.
 
-1. Replace the token placeholder in `auth.js` (shared with QC-32) with QC-21's storage, and make the check sign in for real.
-2. Re-run `qc-33-ui-check.mjs` against the real backend and seeded quiz 101. Use the maker screen or an admin action instead of the stand-in's test controls. Confirm both formats, the `403` for another player, and an unchanged result after republication.
-3. Record the real attempt IDs here and link the walkthrough on QC-33.
+**Contract match.** `PlayService` (`PlayQuiz`, `Feedback`, `Result`) and `AttemptHistory` (`AttemptResult`, `HistoryItem`) use the contract §5.2–5.5 field names. Another player's attempt returns `403 FORBIDDEN`. No API-related frontend change was needed.
+
+**Bug found and fixed.** Right after a submission, the result page reuses the `201` body that the player screen passes in the browser's navigation state. The browser keeps that state across reloads. After a reload, which drops the in-memory session, the result was shown again without signing in. `AttemptResult.jsx` now uses the passed result only while a session exists. Otherwise it loads `GET /api/attempts/{id}`, which returns `401` and redirects to sign-in. A check for this was added to the walkthrough.
+
+[`qc-33/qc-33-real-check.mjs`](qc-33/qc-33-real-check.mjs) registers two fresh accounts (random passwords, not recorded) and signs in through the real sign-in screen. It plays seeded quiz 101 (mixed formats) and 102 "Rivers and Mountains" (true/false only). For republication, it creates quiz 109 for playerA through the real maker API, publishes it, plays it, then republishes it with a changed question 1. Removal during play (`410`, D3) is not part of this ticket's real-API check, because no admin removal route exists yet (QC-35). It stays covered by the stand-in check above. The final run passed 15 of 15. Two earlier runs stopped on the reload bug above and on a script check that ran before the page had loaded. The attempts from those runs (7001–7008) belong to their own throwaway accounts.
+
+| Step | Real responses | Observed | Attempt | Result |
+| --- | --- | --- | --- | --- |
+| Signed out, Start quiz on Planets Warm-Up | `GET /play` → 401 | Redirected to sign-in with "Sign in to play quizzes." | — | PASS |
+| playerA opens quiz 101 | `GET /api/quizzes/101/play` → 200 | No `isCorrect`, `correctChoiceId`, `correct` or `points` in the payload (PLAY-02) | — | PASS |
+| Venus then Mercury, True, 8 then Clear, submit anyway | `POST /api/revisions/1001/attempts` → 201 | Body `[{5001,9002},{5002,9004},{5003,null}]` (PLAY-03, PLAY-04) | 7009 | PASS |
+| Result | — | Score 1/3. ✓ Mercury. ✗ True, correct: False. ✗ blank, correct: 8 (PLAY-01, PLAY-05) | 7009 | PASS ([screenshot](qc-33/qc-33-real-1-result.png)) |
+| Retake, all correct | `POST` → 201 | 3/3, a separate attempt (QC-25 case 07) | 7010 | PASS |
+| Quiz 102, all True | `POST` → 201 | True/false only, Score 2/3, 3 feedback rows (both formats) | 7011 | PASS |
+| Own quiz 109, revision 1010: Mars, True | `POST /api/revisions/1010/attempts` → 201 | Score 1/2 | 7012 | PASS |
+| Reload the result page | `GET /api/attempts/7012` → 401 | Redirected to sign-in, no result shown (bug fix above) | 7012 | PASS |
+| Republish 109 as revision 1011 (number 2), reopen 7012 | `GET /api/attempts/7012` → 200 | Still revision 1010's "Which planet is called the Red Planet?" and 1/2 (REV-01). A new play shows revision 2's question. | 7012 | PASS ([screenshot](qc-33/qc-33-real-2-after-republish.png)) |
+| My history | `GET /api/me/attempts` → 200 | 7012, 7011, 7010, 7009, newest first | all | PASS ([screenshot](qc-33/qc-33-real-3-history.png)) |
+| playerB opens attempt 7009 | `GET /api/attempts/7009` → **403** | "This result belongs to another player.", no feedback. playerB's history is empty | 7009 | PASS ([screenshot](qc-33/qc-33-real-4-denied.png)) |
+
+`npm.cmd run lint` reported no findings and `npm.cmd run build` passed with the fix.
