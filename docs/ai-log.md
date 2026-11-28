@@ -68,3 +68,9 @@
 - **Implementation** — The token is held in memory per the contract, replacing the `localStorage` placeholder, and is dropped on sign-out, JWT expiry, an API `401` or reload. Added the sign-in and registration screens and the top-bar account menu. The shared `SignInRequired` component now redirects, so the maker and player screens needed no change.
 - **Checks** — `npm.cmd run build` passed. Against the live API on 8080 with Vite on 5173, `docs/qc-24/qc-24-ui-check.mjs` passed 24 of 24 headless Edge checks, including one successful and one denied sign-in. Screenshot review found two problems, a premature "signed in" screenshot and a top bar that grew 8 px after sign-in, and both were fixed before the final run. See the [evidence](qc-24-evidence.md).
 - **Review** — Ghadi's review is pending. The checkers for QC-32 and QC-33 still inject a `localStorage` token and need updating by their owner.
+
+## 2026-11-28 · QC-26 · Catalog boundary review
+
+- **Scope** — At `4b7be93f68b8463a5370624d5e71641a59c08b59`, reviewed CAT-01–05, MAKE-05/06, PLAY-01/02/04/05, REV-01 and ENG-03 using live Jira, the QC-18 contract and the approved QC-25 attachment. [Review and source record](qc-26-review.md)
+- **Commands and outcome** — `git status --short` was empty. Switched to master, ran `git pull --ff-only origin master` and created QC-26. `mvn -B verify` with the README's PostgreSQL test URL passed all 7 tests. `./backend/scripts/check-catalog.ps1` passed all signed-out checks, including metadata shape and revision 1001 → 1002 after a SQL pointer update.
+- **Human review** — Pending. Publication pointer constraints and published-content immutability are proposed for QC-36 and QC-37. QC-27 ownership and QC-29 privacy and grading still need backend verification. Fix links are Pending.
