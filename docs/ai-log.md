@@ -35,3 +35,10 @@
 - **Checks** — `npm.cmd ci` and `npm.cmd run build` passed. QC-22 was still in review (PR #4), so its backend ran from a detached worktree under `.qc19/` and was not merged into `QC-23`. On a fresh PostgreSQL 18.1 database, a headless Edge run of `docs/qc-23/qc-23-ui-check.mjs` passed every step. Science + Easy + True / false showed only Planets Warm-Up, with the draft absent. Science + Hard showed the empty message, and both Clear filters buttons restored all three quizzes. See the [evidence](qc-23-evidence.md) and screenshots.
 - **Check on master** — After Bilal merged #5 (QC-23) and #4 (QC-22), `master` at `59bc4b5` was rebuilt with `mvn -B verify` and `npm.cmd run build`, and started on a new, empty `quizzcraft_master` database, which it seeded. The same `docs/qc-23/qc-23-ui-check.mjs` run passed every step again, with the same requests and titles.
 - **Review** — Rim reviewed the work and had it committed, pushed and merged as #5. This entry's formatting was restored after the #4 merge resolution flattened it.
+
+## 2026-11-28 · QC-21 · Registration and sign-in
+
+- **Task and inputs.** Hady asked Codex to implement his active Sprint 1 tasks. QC-21 uses the QC-18 account API contract, ACC-01 through ACC-05, the existing PostgreSQL users table, and the signed-out catalog on master at `3bb9306`.
+- **Implementation decisions.** Codex implemented the backend, preserved the existing schema and seeded BCrypt accounts, and documented the one-hour token and in-memory client storage choice for QC-24. Hady’s scope covers the server. The client screen remains Ghadi’s ticket.
+- **Review and corrections.** A code review identified input containing a null character that PostgreSQL could reject during account creation or lookup. Codex added validation and regression checks. These are changes from agent review. Human code review can be recorded in the pull request.
+- **Observed verification.** Maven verification with PostgreSQL passed all seven account integration tests, including application restart. The frontend built, and a second run exercised the packaged JAR through Vite. [Commands and observations](qc-21-evidence.md).

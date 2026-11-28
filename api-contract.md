@@ -1,7 +1,7 @@
 # QuizzCraft — API and data contract (QC-18)
 
 Status: **DRAFT for team review** · Requirements: ENG-03, REV-01 · Owner: Ghadi
-Decisions D1–D8 and the access rules are agreed. Still open for Hady: JWT expiry and where React stores the token.
+Decisions D1–D8 and the access rules are agreed. QC-21 specifies the token lifetime and client storage below.
 
 ## 1. Architecture
 
@@ -11,7 +11,7 @@ React (desktop, Vite dev server)  --HTTP/JSON-->  Spring Boot API (/api/**)  --J
 
 - The browser never sees answer keys before submission. Grading, permissions and publication validation happen only on the server.
 - Every route lives under `/api`. In development, the React dev server proxies `/api` to Spring Boot, so the browser treats everything as one origin.
-- Auth (**decided: JWT**): login returns a signed JWT (claims: user id, role, expiry). React sends `Authorization: Bearer <token>` on every protected call. The server is stateless. Logout means React discards the token. **[Hady, QC-21]** choose the expiry and where React keeps the token (memory or localStorage).
+- Auth (**decided: JWT**): login returns a signed JWT (claims: user id, role, expiry). React sends `Authorization: Bearer <token>` on every protected call. The server is stateless. Logout means React discards the token. **QC-21 / QC-24 integration:** the default lifetime is one hour. Keep the token in React memory and discard it on logout, expiration or page reload. After the token is discarded, protected actions require another login.
 
 ## 2. Domain model
 
