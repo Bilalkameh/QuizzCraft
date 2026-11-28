@@ -30,9 +30,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO quiz_revisions (id, quiz_id, number, state, title, description, category_id, difficulty, published_at) VALUES
     (1001, 101, 1, 'PUBLISHED', 'Planets Warm-Up', 'Three quick questions about our solar system.', 2, 'EASY', '2026-11-27 09:00:00+02'),
     (902, 102, 1, 'PUBLISHED', 'Rivers and Mountains', 'Three true-or-false statements about famous rivers and peaks.', 1, 'MEDIUM', '2026-11-27 09:05:00+02'),
-    (903, 103, 1, 'PUBLISHED', 'Fractions Challenge', 'Three tricky questions on adding, comparing and dividing fractions.', 3, 'HARD', '2026-11-27 09:10:00+02'),
-    -- Private draft: never published, so it must never appear publicly (CAT-05).
-    (904, 104, NULL, 'DRAFT', 'Moon Basics', 'Two statements about the Moon.', 2, 'EASY', NULL)
+    (903, 103, 1, 'PUBLISHED', 'Fractions Challenge', 'Three tricky questions on adding, comparing and dividing fractions.', 3, 'HARD', '2026-11-27 09:10:00+02')
 ON CONFLICT DO NOTHING;
 
 -- Only set on a fresh seed, so a later republish of a seeded quiz is not undone on restart.
@@ -52,10 +50,7 @@ INSERT INTO questions (id, revision_id, position, type, text) VALUES
     -- Fractions Challenge (MULTIPLE_CHOICE)
     (4301, 903, 1, 'MULTIPLE_CHOICE', 'What is 3/4 + 5/6?'),
     (4302, 903, 2, 'MULTIPLE_CHOICE', 'Which fraction is the largest?'),
-    (4303, 903, 3, 'MULTIPLE_CHOICE', 'What is 2/3 divided by 4/9?'),
-    -- Moon Basics (draft, TRUE_FALSE)
-    (4401, 904, 1, 'TRUE_FALSE', 'The Moon orbits the Earth.'),
-    (4402, 904, 2, 'TRUE_FALSE', 'The Moon gives off its own light.')
+    (4303, 903, 3, 'MULTIPLE_CHOICE', 'What is 2/3 divided by 4/9?')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO choices (id, question_id, position, text, is_correct) VALUES
@@ -83,12 +78,34 @@ INSERT INTO choices (id, question_id, position, text, is_correct) VALUES
     (8306, 4302, 3, '2/3', TRUE),
     (8307, 4303, 1, '3/2', TRUE),
     (8308, 4303, 2, '8/27', FALSE),
-    (8309, 4303, 3, '2/3', FALSE),
+    (8309, 4303, 3, '2/3', FALSE)
+ON CONFLICT DO NOTHING;
 
+-- Initialize the private draft's children only when inserting the draft itself. On restart,
+-- a maker's saved or published version of Moon Basics must keep exactly its own questions.
+WITH new_draft AS (
+    INSERT INTO quiz_revisions (id, quiz_id, state, title, description, category_id, difficulty)
+    VALUES (904, 104, 'DRAFT', 'Moon Basics', 'Two statements about the Moon.', 2, 'EASY')
+    ON CONFLICT DO NOTHING
+    RETURNING id
+), new_questions AS (
+    INSERT INTO questions (id, revision_id, position, type, text)
+    SELECT seed.id, d.id, seed.position, 'TRUE_FALSE', seed.text
+    FROM new_draft d CROSS JOIN (VALUES
+        (4401, 1, 'The Moon orbits the Earth.'),
+        (4402, 2, 'The Moon gives off its own light.')
+    ) AS seed(id, position, text)
+    ON CONFLICT DO NOTHING
+    RETURNING id
+)
+INSERT INTO choices (id, question_id, position, text, is_correct)
+SELECT seed.id, q.id, seed.position, seed.text, seed.is_correct
+FROM new_questions q JOIN (VALUES
     (8401, 4401, 1, 'True', TRUE),
     (8402, 4401, 2, 'False', FALSE),
     (8403, 4402, 1, 'True', FALSE),
     (8404, 4402, 2, 'False', TRUE)
+) AS seed(id, question_id, position, text, is_correct) ON seed.question_id = q.id
 ON CONFLICT DO NOTHING;
 
 -- Move each identity past the highest id in use so generated ids never collide with seeded ones.
