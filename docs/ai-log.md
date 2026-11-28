@@ -59,3 +59,12 @@
 - **Implementation decisions.** Codex implemented the backend, preserved the existing schema and seeded BCrypt accounts, and documented the one-hour token and in-memory client storage choice for QC-24. Hady’s scope covers the server. The client screen remains Ghadi’s ticket.
 - **Review and corrections.** A code review identified input containing a null character that PostgreSQL could reject during account creation or lookup. Codex added validation and regression checks. These are changes from agent review. Human code review can be recorded in the pull request.
 - **Observed verification.** Maven verification with PostgreSQL passed all seven account integration tests, including application restart. The frontend built, and a second run exercised the packaged JAR through Vite. [Commands and observations](qc-21-evidence.md).
+
+## 2026-11-28 · QC-24 · ACC-01…03 desktop sign-in
+
+- **Tool and request** — Claude Code (Claude Opus 5.5). Ghadi asked to build QC-24 and run the app to check it.
+- **Inputs** — The live [QC-24 issue](https://net-team-s2bxx850.atlassian.net/browse/QC-24) (read only), [requirements](requirements.md) ACC-01…03 and §5.1, the [contract](../api-contract.md) auth routes and token rule, and the QC-21 API on `origin/master` at `c75cdc6`.
+- **Human decisions** — Ghadi chose to redirect signed-out visitors to `/signin` and return them afterwards, and to sign new accounts in automatically after registration. Ghadi asked Claude to stop the local `PEMHTTPD-x64` Apache service holding port 8080, which was done through a Windows UAC prompt. Ghadi created the branch and owns the commit, push and Jira updates.
+- **Implementation** — The token is held in memory per the contract, replacing the `localStorage` placeholder, and is dropped on sign-out, JWT expiry, an API `401` or reload. Added the sign-in and registration screens and the top-bar account menu. The shared `SignInRequired` component now redirects, so the maker and player screens needed no change.
+- **Checks** — `npm.cmd run build` passed. Against the live API on 8080 with Vite on 5173, `docs/qc-24/qc-24-ui-check.mjs` passed 24 of 24 headless Edge checks, including one successful and one denied sign-in. Screenshot review found two problems, a premature "signed in" screenshot and a top bar that grew 8 px after sign-in, and both were fixed before the final run. See the [evidence](qc-24-evidence.md).
+- **Review** — Ghadi's review is pending. The checkers for QC-32 and QC-33 still inject a `localStorage` token and need updating by their owner.
