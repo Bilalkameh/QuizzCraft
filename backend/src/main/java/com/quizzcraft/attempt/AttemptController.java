@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.quizzcraft.attempt.AttemptStore.HistoryItem;
+import com.quizzcraft.attempt.AttemptHistory.HistoryItem;
 
 /**
  * Private attempt history (QC-31, contract §5.4–5.5 and §3). Both routes need a signed-in user, which the
@@ -28,9 +28,9 @@ class AttemptController {
         }
     }
 
-    private final AttemptStore attempts;
+    private final AttemptHistory attempts;
 
-    AttemptController(AttemptStore attempts) {
+    AttemptController(AttemptHistory attempts) {
         this.attempts = attempts;
     }
 

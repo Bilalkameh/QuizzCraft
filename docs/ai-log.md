@@ -96,3 +96,11 @@ The original failing example at `4421457` now returns 201 and 1/3. The focused r
 - **Implementation** — Added `attempts` and `attempt_answers` (ids from 7001), `AttemptStore` (a transactional save that checks the graded result against the published revision, plus result and history reads) and `AttemptController` (`GET /api/me/attempts` and `GET /api/attempts/{id}`, with 401/403/404). The first test run showed that `@Repository` exception translation turned the documented `IllegalArgumentException` into a Spring exception, so the store became a plain `@Component`.
 - **Checks** — `mvn -B verify` against PostgreSQL 16.16 ran 12 tests with 0 failures (5 new and 7 from QC-21). These include reopening an attempt unchanged after republication, removal and an application restart. A live headless Edge check of the QC-33 history and result screens with sample graded attempts passed 8 of 8. See the [evidence](qc-31-evidence.md).
 - **Review** — Ghadi's review is pending. The live submission flow waits for QC-29.
+
+## 2026-11-28 · QC-31 · Merge fix after QC-29
+
+- **Request** — After pulling master, Ghadi asked Claude to check what was new and then to fix what it found.
+- **Finding** — Master now included QC-29 (PR #12), with its own `play/AttemptStore`. On the pushed `QC-31` commit `5330fbb`, `mvn -B verify` failed at startup with `ConflictingBeanDefinitionException` for bean `attemptStore`, so every integration test failed. `schema.sql` also still contained merge conflict markers.
+- **Human decision** — Ghadi approved the proposed fix: QC-29's store remains the only writer, and QC-31's class becomes read-only. Hady's code is unchanged.
+- **Fix** — Resolved `schema.sql` to one `attempts` definition (QC-29's `statement_timestamp()` default, plus QC-31's 7001 start and history index). Replaced `attempt/AttemptStore` with the read-only `AttemptHistory`, and rewrote the QC-31 tests and live check to create attempts through the real `POST /api/revisions/{id}/attempts` instead of sample data.
+- **Checks** — `mvn -B verify` against PostgreSQL 16.16 ran 28 tests with 0 failures (QC-31 5, QC-21 7, QC-29 16). The headless Edge play, submit and history check passed 8 of 8. See the [evidence](qc-31-evidence.md).
