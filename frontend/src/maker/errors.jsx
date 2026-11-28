@@ -1,10 +1,13 @@
 import React from 'react';
 
-export function SignInRequired() {
+export function SignInRequired({
+  message = 'Sign in to make quizzes.',
+  hint = 'Making and editing quizzes needs an account.',
+}) {
   return (
     <div role="alert" className="notice">
-      <p>Sign in to make quizzes.</p>
-      <p className="hint-text">Making and editing quizzes needs an account.</p>
+      <p>{message}</p>
+      <p className="hint-text">{hint}</p>
     </div>
   );
 }

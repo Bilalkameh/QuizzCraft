@@ -49,4 +49,12 @@ export const maker = {
   publish: (quizId) => api(`/api/my/quizzes/${quizId}/publish`, { method: 'POST' }),
 };
 
+// Play and history routes, with bodies from contract §5.2–5.5 and the approved QC-25 specification.
+export const player = {
+  getPlay: (quizId, signal) => api(`/api/quizzes/${quizId}/play`, { signal }),
+  submit: (revisionId, answers) => api(`/api/revisions/${revisionId}/attempts`, { method: 'POST', body: { answers } }),
+  getAttempt: (attemptId, signal) => api(`/api/attempts/${attemptId}`, { signal }),
+  myAttempts: (signal) => api('/api/me/attempts', { signal }),
+};
+
 export const getCategories = (signal) => api('/api/categories', { signal });

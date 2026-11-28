@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 
 const NO_FILTERS = { categoryId: '', difficulty: '', format: '' };
 
@@ -147,6 +148,7 @@ function QuizCard({ quiz }) {
           <dd>{quiz.questionCount}</dd>
         </div>
       </dl>
+      <Link className="start-link" to={`/quizzes/${quiz.quizId}/play`}>Start quiz</Link>
     </li>
   );
 }

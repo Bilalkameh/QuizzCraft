@@ -399,3 +399,182 @@ button.secondary:disabled {
   background: #f0faf4;
   color: #14532d;
 }
+
+/* Player, result and history (QC-33) */
+.start-link,
+.button-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #2f5fd0;
+  border-radius: 6px;
+  background: #2f5fd0;
+  color: #fff;
+  text-decoration: none;
+}
+
+.button-link {
+  margin-top: 0;
+}
+
+.button-link.secondary {
+  background: #fff;
+  color: #2f5fd0;
+}
+
+.player,
+.result {
+  max-width: 820px;
+}
+
+.player-meta,
+.score {
+  margin: 0;
+  color: #4b5563;
+}
+
+.score {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1d2330;
+}
+
+.question-jump {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.question-jump button {
+  min-width: 2.2rem;
+  border-color: #b8bec8;
+  background: #fff;
+  color: #1d2330;
+}
+
+.question-jump button.answered {
+  border-color: #2f5fd0;
+  background: #e8eefc;
+}
+
+.question-jump button[aria-current='step'] {
+  outline: 2px solid #1d2330;
+  outline-offset: 1px;
+  font-weight: 700;
+}
+
+.play-question {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid #d9dde3;
+  border-radius: 8px;
+}
+
+.play-question legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.play-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+}
+
+.player-nav {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.player-submit {
+  padding-top: 1rem;
+  border-top: 1px solid #d9dde3;
+}
+
+.confirm-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #b7791f;
+  border-radius: 8px;
+  background: #fffaeb;
+}
+
+.confirm-box p {
+  flex-basis: 100%;
+  margin: 0;
+  font-weight: 600;
+}
+
+.feedback {
+  margin: 1rem 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.feedback li {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1px solid #d9dde3;
+  border-left-width: 4px;
+  border-radius: 6px;
+}
+
+.feedback li.is-correct {
+  border-left-color: #1f7a4d;
+}
+
+.feedback li.is-wrong {
+  border-left-color: #b42318;
+}
+
+.feedback .mark {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.feedback .is-correct .mark {
+  color: #1f7a4d;
+}
+
+.feedback .is-wrong .mark {
+  color: #b42318;
+}
+
+.feedback-question,
+.feedback-detail {
+  margin: 0;
+}
+
+.feedback-question {
+  font-weight: 600;
+}
+
+.feedback-detail {
+  color: #4b5563;
+}
+
+.tag {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #fde8e7;
+  color: #7a1a12;
+  font-size: 0.8rem;
+}
