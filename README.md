@@ -1,6 +1,6 @@
 # QuizzCraft
 
-QuizzCraft currently shows a signed-out quiz catalog with category, difficulty and format filters (QC-23). The data comes from PostgreSQL through the Spring Boot API, and the React development server proxies `/api` to Spring Boot. The catalog needs the `GET /api/quizzes` endpoint from QC-22. The maker screens at `/my/quizzes` (QC-32) need the maker API from QC-27 and sign-in from QC-21. The player, results and history at `/quizzes/:id/play`, `/attempts/:id` and `/me/attempts` (QC-33) need QC-29, QC-31 and QC-21. Until those land, these screens ask the user to sign in.
+Visitors can browse the quiz catalog and filter by category, difficulty and format. Signed-in players can open a published quiz, submit answers and see their score and feedback on the result screen. Spring Boot saves each submission in PostgreSQL. The React development server proxies `/api` to Spring Boot. The maker screens use the publishing API tracked in QC-27. Reopening a saved result and listing private history use the read endpoints tracked in QC-31. [Scoring tests and results](docs/qc-29-test-results.md)
 
 ## Local setup on Windows
 

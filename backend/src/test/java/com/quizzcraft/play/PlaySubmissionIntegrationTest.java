@@ -21,11 +21,19 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @EnabledIfEnvironmentVariable(named = "QUIZZCRAFT_TEST_DB_URL", matches = ".+")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -38,10 +46,10 @@ class PlaySubmissionIntegrationTest {
     private static final String ALL_BLANK = "{\"answers\":[]}";
     private final String schema = "qc29_" + UUID.randomUUID().toString().replace("-", "");
     private final TestRestTemplate http = new TestRestTemplate();
-    private JdbcTemplate schemaAdmin;
     private JdbcTemplate db;
     private ServletWebServerApplicationContext app;
     private String token;
+    private long playerId;
 
     @BeforeAll
     void startInNewPostgresSchemaAndSignIn() {
@@ -49,15 +57,18 @@ class PlaySubmissionIntegrationTest {
         var connection = new DriverManagerDataSource(url,
                 System.getenv().getOrDefault("QUIZZCRAFT_DB_USER", "quizzcraft"),
                 System.getenv().getOrDefault("QUIZZCRAFT_DB_PASSWORD", ""));
-        schemaAdmin = new JdbcTemplate(connection);
-        schemaAdmin.execute("CREATE SCHEMA " + schema);
+        // DriverManagerDataSource opens a separate connection for every observation.
+        db = new JdbcTemplate(connection);
+        db.execute("CREATE SCHEMA " + schema);
+        connection.setSchema(schema);
         app = (ServletWebServerApplicationContext) new SpringApplicationBuilder(QuizzCraftApplication.class)
                 .run("--server.port=0", "--spring.datasource.url=" + url, "--spring.datasource.hikari.schema=" + schema);
-        db = app.getBean(JdbcTemplate.class);
 
         String email = "player@example.test";
         String password = UUID.randomUUID().toString();
-        request(HttpMethod.POST, "/api/auth/register", Map.of("email", email, "displayName", "Player", "password", password), null, 201);
+        playerId = request(HttpMethod.POST, "/api/auth/register",
+                Map.of("email", email, "displayName", "Player", "password", password), null, 201)
+                .required("id").asLong();
         token = request(HttpMethod.POST, "/api/auth/login", Map.of("email", email, "password", password), null, 200)
                 .required("token").asText();
     }
@@ -67,8 +78,8 @@ class PlaySubmissionIntegrationTest {
         if (app != null) {
             app.close();
         }
-        if (schemaAdmin != null) {
-            schemaAdmin.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+        if (db != null) {
+            db.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
         }
     }
 
@@ -135,9 +146,39 @@ class PlaySubmissionIntegrationTest {
         String body = """
                 {"answers":[{"questionId":5001,"choiceId":9002},{"questionId":%d,"choiceId":%d}]}
                 """.formatted(question, choice);
+        RowCounts before = rowCounts();
         JsonNode error = submit(1001, body, 422);
         assertThat(error.required("error").asText()).as(scenario).isEqualTo("VALIDATION_FAILED");
         assertThat(error.has("attemptId")).isFalse();
+        assertThat(rowCounts()).isEqualTo(before);
+    }
+
+    @Test
+    void fractionalChoiceIdCannotBeRoundedIntoAValidAnswer() {
+        RowCounts before = rowCounts();
+        JsonNode error = submit(1001, """
+                {"answers":[{"questionId":5001,"choiceId":9002.5}]}
+                """, 422);
+        assertThat(error.required("error").asText()).isEqualTo("VALIDATION_FAILED");
+        assertThat(rowCounts()).isEqualTo(before);
+    }
+
+    @Test
+    void failedSecondAnswerInsertRollsBackAttemptAndPreviouslyInsertedAnswer() {
+        RowCounts before = rowCounts();
+        // Reject new inserts for the second question; existing attempts in this schema stay valid.
+        db.execute("""
+                ALTER TABLE attempt_answers ADD CONSTRAINT qc29_injected_failure
+                CHECK (question_id <> 5002) NOT VALID
+                """);
+        try {
+            submit(1001, MIXED, 500);
+            assertThat(rowCounts()).isEqualTo(before);
+        } finally {
+            db.execute("ALTER TABLE attempt_answers DROP CONSTRAINT qc29_injected_failure");
+        }
+        submit(1001, MIXED, 201);
+        assertThat(rowCounts()).isEqualTo(new RowCounts(before.attempts() + 1, before.answers() + 3));
     }
 
     @Test
@@ -193,10 +234,17 @@ class PlaySubmissionIntegrationTest {
         assertThat(play(102, 200).required("revisionId").asLong()).isEqualTo(902);
         db.update("UPDATE quizzes SET status = 'REMOVED' WHERE id = 102");
         try {
+            RowCounts before = rowCounts();
             JsonNode error = submit(902, ALL_BLANK, 410);
             assertThat(error.required("error").asText()).isEqualTo("QUIZ_REMOVED");
             assertThat(error.has("attemptId")).isFalse();
+            // Once removed, even a submission with duplicate selections gets the removal response.
+            JsonNode duplicate = submit(902, """
+                    {"answers":[{"questionId":4201,"choiceId":8201},{"questionId":4201,"choiceId":8201}]}
+                    """, 410);
+            assertThat(duplicate.required("error").asText()).isEqualTo("QUIZ_REMOVED");
             play(102, 404);
+            assertThat(rowCounts()).isEqualTo(before);
         } finally {
             db.update("UPDATE quizzes SET status = 'ACTIVE' WHERE id = 102");
         }
@@ -213,6 +261,17 @@ class PlaySubmissionIntegrationTest {
         assertThat(next.required("attemptId").asLong()).isPositive().isNotEqualTo(first.get("attemptId").asLong());
         assertThat(first.required("score").intValue()).isEqualTo(1);
         assertThat(next.required("score").intValue()).isEqualTo(3);
+
+        long firstId = first.required("attemptId").asLong();
+        long nextId = next.required("attemptId").asLong();
+        assertThat(storedAttempt(firstId)).isEqualTo(new StoredAttempt(playerId, 1001, 1, 3));
+        assertThat(storedAttempt(nextId)).isEqualTo(new StoredAttempt(playerId, 1001, 3, 3));
+        assertThat(storedAnswers(firstId)).containsExactly(
+                new StoredAnswer(5001, 9002L, true), new StoredAnswer(5002, 9004L, false),
+                new StoredAnswer(5003, null, false));
+        assertThat(storedAnswers(nextId)).containsExactly(
+                new StoredAnswer(5001, 9002L, true), new StoredAnswer(5002, 9005L, true),
+                new StoredAnswer(5003, 9007L, true));
     }
 
     @Test
@@ -227,6 +286,96 @@ class PlaySubmissionIntegrationTest {
     void signedOutPlayersCannotOpenPlayOrSubmit() {
         request(HttpMethod.GET, "/api/quizzes/101/play", null, null, 401);
         request(HttpMethod.POST, "/api/revisions/1001/attempts", MIXED, null, 401);
+    }
+
+    private record RowCounts(long attempts, long answers) {}
+    private record StoredAttempt(long userId, long revisionId, int score, int maxScore) {}
+    private record StoredAnswer(long questionId, Long choiceId, boolean correct) {}
+
+    private RowCounts rowCounts() {
+        return db.queryForObject("SELECT (SELECT count(*) FROM attempts), (SELECT count(*) FROM attempt_answers)",
+                (row, n) -> new RowCounts(row.getLong(1), row.getLong(2)));
+    }
+
+    private StoredAttempt storedAttempt(long id) {
+        return db.queryForObject("SELECT user_id, revision_id, score, max_score FROM attempts WHERE id = ?",
+                (row, n) -> new StoredAttempt(row.getLong("user_id"), row.getLong("revision_id"),
+                        row.getInt("score"), row.getInt("max_score")), id);
+    }
+
+    private List<StoredAnswer> storedAnswers(long id) {
+        return db.query("""
+                SELECT question_id, choice_id, correct FROM attempt_answers
+                WHERE attempt_id = ? ORDER BY question_id
+                """, (row, n) -> new StoredAnswer(row.getLong("question_id"),
+                row.getObject("choice_id", Long.class), row.getBoolean("correct")), id);
+    }
+
+    @Test
+    void removalThatCommitsFirstRejectsTheWaitingSubmission() throws Exception {
+        long before = db.queryForObject("SELECT count(*) FROM attempts WHERE revision_id = 1001", Long.class);
+        try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
+            Future<JsonNode> submission;
+            try (var removal = db.getDataSource().getConnection(); var statement = removal.createStatement()) {
+                removal.setAutoCommit(false);
+                statement.executeUpdate("UPDATE quizzes SET status = 'REMOVED' WHERE id = 101");
+                int removalPid = backendPid(statement);
+                submission = workers.submit(() -> submit(1001, MIXED, 410));
+                awaitBlockedClient(removalPid);
+                removal.commit();
+            }
+            assertThat(submission.get(10, SECONDS).required("error").asText()).isEqualTo("QUIZ_REMOVED");
+            assertThat(db.queryForObject("SELECT count(*) FROM attempts WHERE revision_id = 1001", Long.class))
+                    .isEqualTo(before);
+        } finally {
+            db.update("UPDATE quizzes SET status = 'ACTIVE' WHERE id = 101");
+        }
+    }
+
+    @Test
+    void quizRemainsLockedWhileTheAnswerInsertIsWaiting() throws Exception {
+        try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
+            Future<JsonNode> submission;
+            try (var gate = db.getDataSource().getConnection(); var statement = gate.createStatement()) {
+                gate.setAutoCommit(false);
+                // Pause the real insert at the answer table, after the service has checked the quiz.
+                statement.execute("LOCK TABLE attempt_answers IN SHARE MODE");
+                int gatePid = backendPid(statement);
+                submission = workers.submit(() -> submit(1001, MIXED, 201));
+                awaitBlockedClient(gatePid);
+
+                try (var moderator = db.getDataSource().getConnection(); var probe = moderator.createStatement()) {
+                    // The lock used for a status update must conflict with the in-flight submission.
+                    SQLException busy = assertThrows(SQLException.class, () ->
+                            probe.execute("SELECT id FROM quizzes WHERE id = 101 FOR NO KEY UPDATE NOWAIT"));
+                    assertThat(busy.getSQLState()).isEqualTo("55P03");
+                }
+                gate.commit();
+            }
+            long id = submission.get(10, SECONDS).required("attemptId").asLong();
+            db.update("UPDATE quizzes SET status = 'REMOVED' WHERE id = 101");
+            assertThat(db.queryForObject("SELECT count(*) FROM attempt_answers WHERE attempt_id = ?", Long.class, id))
+                    .isEqualTo(3L);
+        } finally {
+            db.update("UPDATE quizzes SET status = 'ACTIVE' WHERE id = 101");
+        }
+    }
+
+    private int backendPid(Statement statement) throws SQLException {
+        try (var result = statement.executeQuery("SELECT pg_backend_pid()")) {
+            result.next();
+            return result.getInt(1);
+        }
+    }
+
+    private void awaitBlockedClient(int blockerPid) {
+        await().alias("submission waiting for PostgreSQL backend " + blockerPid).atMost(10, SECONDS).until(() ->
+                Boolean.TRUE.equals(db.queryForObject("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM pg_stat_activity
+                            WHERE datname = current_database() AND ? = ANY(pg_blocking_pids(pid))
+                        )
+                        """, Boolean.class, blockerPid)));
     }
 
     private static void feedback(JsonNode question, int id, Integer chosen, int correct, int points) {

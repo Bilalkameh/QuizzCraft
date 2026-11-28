@@ -76,3 +76,9 @@ Hady requested the Sprint 2 work that could start immediately. Codex used the ap
 ## QC-29 · Bilal Kameh’s review, 28 November 2026
 
 Hady relayed Bilal’s conditional approval of the scoring design. Bilal will preserve prior published revisions in QC-27. He requested explicit test ownership and one transaction for the removal check, attempt insert and all answer inserts. Codex mapped the nine approved cases, separated the empty-list and invalid-request examples, and strengthened the two-revision test. The PostgreSQL regression run executed 19 checks with 10 expected failures on missing routes. Ghadi’s confirmation and the real-store rollback check remain open. [Review and test ownership](qc-29-implementation-proposal.md) · [Commands and results](qc-29-test-results.md)
+
+## QC-29 · Submission implementation, 28 November 2026
+
+Hady reported that Ghadi delegated the transaction decision and asked Codex to proceed. QC-29 now locks the quiz row in the submission transaction and uses a write adapter that requires that transaction. It saves the authenticated owner, opened revision, score and every answer together. Ghadi can use those tables for QC-31’s private history reads.
+
+The original failing example at `4421457` now returns 201 and 1/3. The focused run passed, then `mvn -B verify` passed all 23 PostgreSQL-backed tests with zero skipped. Forcing the second answer insert to fail rolled back the first answer and the attempt. Two concurrent-transaction tests verified the quiz lock through saving and the removal-first 410 outcome. A signed-in Chromium run displayed 1/3, and the same saved rows survived a PostgreSQL and Spring Boot restart. [Test commands and observed results](qc-29-test-results.md) · [Review and transaction decision](qc-29-implementation-proposal.md)

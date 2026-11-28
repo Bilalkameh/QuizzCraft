@@ -48,4 +48,32 @@ AuthAccessIntegrationTest:     7 run,  0 failures, 0 errors, 0 skipped
 [INFO] BUILD FAILURE
 ```
 
-Use the same `mvn -B verify` command above against a development PostgreSQL database to repeat the suite. The next implementation step awaits Ghadi’s confirmation of the shared transaction. Verify the rollback and unchanged row counts with his real store.
+## Implementation and PostgreSQL verification
+
+Ghadi delegated the transaction decision to Hady’s side. The implemented submit route holds the quiz lock through the attempt and answer inserts, then sends the saved feedback. The write adapter joins the transaction started by the submission service. [Transaction decision and integration handoff](qc-29-implementation-proposal.md)
+
+The worked example now returns 201, 1/3 and feedback points `[1, 0, 0]`. PostgreSQL also contains a distinct owner-linked attempt and all three answers, including the blank. The empty submission gives 0/3. A retake can score 3/3 under a new attempt ID. Opening 1001, publishing 1002 through a SQL fixture and submitting 1001 preserves the original key. The next play serves 1002 and grades with its new key.
+
+| PostgreSQL check | Observation |
+|---|---|
+| Validation | Each foreign question, mismatched choice, duplicate question or fractional choice ID returned 422. The attempt and answer counts stayed unchanged. |
+| Forced insert failure | A temporary constraint rejected the second answer after the attempt and first answer insert. HTTP returned 500. A separate connection found the original row counts. After removing the constraint, the retry returned 201 and added one attempt and three answers. |
+| Removal commits first | A concurrent submit waited on the removal transaction, then returned 410 `QUIZ_REMOVED`. No new attempt was saved. Opening a removed quiz returned 404. |
+| Submission gets the lock first | The test paused a real answer insert on a PostgreSQL table lock. A second connection could not acquire the quiz row for a status update. Releasing the insert let the submit commit and return 201. All three answers remained after removal. |
+
+The focused test for the original 1/3 example passed. The full Java 21/Maven run against a fresh PostgreSQL 17.12 cluster completed with the following results:
+
+```text
+PlaySubmissionIntegrationTest: 16 run, 0 failures, 0 errors, 0 skipped
+AuthAccessIntegrationTest:      7 run, 0 failures, 0 errors, 0 skipped
+[INFO] Tests run: 23, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+```
+
+### Desktop player and restart
+
+The frontend built with `npm ci` and `npm run build`. In Chromium, a regular player registered, signed in and opened Planets Warm-Up through Vite and the running Spring Boot API. Play returned revision 1001 with no answer key. Choosing Mercury, choosing True, and leaving the third question blank produced HTTP 201 and a visible score of 1/3. The result showed Mercury for one point, False as the correct second answer, and 8 as the correct answer for the blank.
+
+After restarting both PostgreSQL and the packaged Spring Boot server, a SQL join returned the same owner, attempt ID, revision, score and three responses as before restart. Reopening that result through the history API remains a QC-31 integration check.
+
+Run the two Maven commands under **Reproduce** to repeat the first test and full verification. Tests use isolated schemas in a running PostgreSQL database. Republish and removal are exercised using SQL fixtures. The real maker and moderation routes are checked on QC-27 and QC-35. Cross-account denial and reopening the stored result through the private history API are checked on QC-31.
