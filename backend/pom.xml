@@ -14,6 +14,9 @@
     <version>0.1.0-SNAPSHOT</version>
     <properties>
         <java.version>21</java.version>
+        <!-- QC-30 quality measurement. Keep these versions fixed so QC-40 repeats the same measurement. -->
+        <jacoco.version>0.8.16</jacoco.version>
+        <spotbugs-plugin.version>4.10.5.0</spotbugs-plugin.version>
     </properties>
     <dependencies>
         <dependency>
@@ -48,6 +51,47 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- Coverage of the tests that `mvn verify` runs: target/site/jacoco/ (index.html, jacoco.csv).
+                 The PostgreSQL integration tests only run when QUIZZCRAFT_TEST_DB_URL is set. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Static analysis at the default effort and threshold: target/spotbugsXml.xml. Findings are
+                 reported, not enforced, because this is a measurement and not yet a quality gate. -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>spotbugs</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <failOnError>false</failOnError>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

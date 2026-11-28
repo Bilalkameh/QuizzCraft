@@ -1,0 +1,4 @@
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Analyzed bundle 'quizzcraft-api' with 22 classes
+[INFO] Done SpotBugs Analysis....
+[INFO] BUILD SUCCESS

@@ -57,6 +57,10 @@ mvn -B verify
 
 On macOS, Linux or Git Bash, use `QUIZZCRAFT_TEST_DB_URL=jdbc:postgresql://127.0.0.1:55432/quizzcraft mvn -B verify`. Use the same `QUIZZCRAFT_DB_USER` and `QUIZZCRAFT_DB_PASSWORD` described above if your PostgreSQL credentials differ. [QC-21 verification results](docs/qc-21-evidence.md).
 
+## Quality measurement (QC-30)
+
+`mvn -B verify` in `backend` also writes JaCoCo coverage to `target/site/jacoco/` and SpotBugs findings to `target/spotbugsXml.xml`. Set `QUIZZCRAFT_TEST_DB_URL` as above, or the integration tests and their coverage are skipped. SpotBugs reports findings without failing the build. In `frontend`, `npm.cmd run lint` runs ESLint. The Sprint 1 baseline, commands and versions are in [docs/qc-30-quality-baseline.md](docs/qc-30-quality-baseline.md), and QC-40 repeats them.
+
 ## Verify database persistence
 
 From a third PowerShell terminal at the repository root, run the insert once after Spring Boot has started. Keep this terminal open so the same label is available after restart.
